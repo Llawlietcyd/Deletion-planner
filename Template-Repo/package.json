@@ -1,0 +1,15 @@
+{
+  "name": "deletion-planner",
+  "version": "1.0.0",
+  "description": "Deletion-Aware Adaptive Daily Planning Assistant",
+  "scripts": {
+    "dev": "concurrently \"cd frontend && npm start\" \"cd server && flask run\"",
+    "build": "cd frontend && npm run build"
+  },
+  "keywords": ["ai", "planning", "productivity", "deletion-philosophy"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}
