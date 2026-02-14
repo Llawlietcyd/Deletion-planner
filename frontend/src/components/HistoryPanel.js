@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getHistory } from '../http/api';
 import { useLanguage } from '../i18n/LanguageContext';
 
-function HistoryPanel() {
+function HistoryPanel({ hideHeader = false }) {
   const { t } = useLanguage();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +42,9 @@ function HistoryPanel() {
   if (history.length === 0) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-slate-800">{t.historyTitle}</h1>
+        {!hideHeader && (
+          <h1 className="text-2xl font-bold text-slate-800">{t.historyTitle}</h1>
+        )}
         <div className="card text-center py-10">
           <p className="text-4xl mb-3">📜</p>
           <p className="text-slate-500">{t.noHistory}</p>
@@ -61,7 +63,9 @@ function HistoryPanel() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-800">{t.historyTitle}</h1>
+      {!hideHeader && (
+        <h1 className="text-2xl font-bold text-slate-800">{t.historyTitle}</h1>
+      )}
 
       {Object.entries(grouped)
         .sort(([a], [b]) => b.localeCompare(a))

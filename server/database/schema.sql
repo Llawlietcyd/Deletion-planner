@@ -10,9 +10,15 @@ CREATE TABLE IF NOT EXISTS tasks (
     priority INTEGER DEFAULT 0,
     deferral_count INTEGER DEFAULT 0,
     completion_count INTEGER DEFAULT 0,
+    source VARCHAR(20) DEFAULT 'manual',
+    decision_reason TEXT DEFAULT '',
+    completed_at DATETIME NULL,
+    deleted_at DATETIME NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at);
 
 CREATE TABLE IF NOT EXISTS daily_plans (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,6 +28,7 @@ CREATE TABLE IF NOT EXISTS daily_plans (
     max_tasks INTEGER DEFAULT 4,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_daily_plans_date ON daily_plans(date);
 
 CREATE TABLE IF NOT EXISTS plan_tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,3 +46,4 @@ CREATE TABLE IF NOT EXISTS task_history (
     ai_reasoning TEXT DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_task_history_date ON task_history(date);

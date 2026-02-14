@@ -12,7 +12,7 @@ function StatCard({ label, value, sub, color = 'text-slate-800' }) {
   );
 }
 
-function StatsPanel() {
+function StatsPanel({ hideHeader = false }) {
   const { t } = useLanguage();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +50,9 @@ function StatsPanel() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-800">{t.statsTitle}</h1>
+      {!hideHeader && (
+        <h1 className="text-2xl font-bold text-slate-800">{t.statsTitle}</h1>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label={t.activeTasks} value={stats.active_tasks} color="text-core" />

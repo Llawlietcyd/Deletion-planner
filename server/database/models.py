@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, String, Text, DateTime, Float, ForeignKey, Enum, create_engine
+    Column, Integer, String, Text, DateTime, ForeignKey, Index
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from datetime import datetime, timezone
@@ -39,6 +39,11 @@ class HistoryAction(str, enum.Enum):
 
 class Task(Base):
     __tablename__ = "tasks"
+    __table_args__ = (
+        Index("idx_tasks_status", "status"),
+        Index("idx_tasks_created_at", "created_at"),
+        Index("idx_tasks_sort_order", "sort_order"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(255), nullable=False)
@@ -46,8 +51,13 @@ class Task(Base):
     category = Column(String(30), default=TaskCategory.UNCLASSIFIED.value)
     status = Column(String(20), default=TaskStatus.ACTIVE.value)
     priority = Column(Integer, default=0)  # higher = more important
+    sort_order = Column(Integer, default=0)  # lower value appears first
     deferral_count = Column(Integer, default=0)
     completion_count = Column(Integer, default=0)
+    source = Column(String(20), default="manual")  # manual / ai / rule
+    decision_reason = Column(Text, default="")
+    completed_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
@@ -64,8 +74,13 @@ class Task(Base):
             "category": self.category,
             "status": self.status,
             "priority": self.priority,
+            "sort_order": self.sort_order,
             "deferral_count": self.deferral_count,
             "completion_count": self.completion_count,
+            "source": self.source,
+            "decision_reason": self.decision_reason,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -73,6 +88,9 @@ class Task(Base):
 
 class DailyPlan(Base):
     __tablename__ = "daily_plans"
+    __table_args__ = (
+        Index("idx_daily_plans_date", "date"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     date = Column(String(10), nullable=False, unique=True)  # YYYY-MM-DD
@@ -124,6 +142,9 @@ class PlanTask(Base):
 
 class TaskHistory(Base):
     __tablename__ = "task_history"
+    __table_args__ = (
+        Index("idx_task_history_date", "date"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)

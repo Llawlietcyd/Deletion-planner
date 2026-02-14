@@ -4,7 +4,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import TaskInput from './TaskInput';
 import TaskList from './TaskList';
 
-function TasksPage() {
+function TasksPage({ hideHeader = false }) {
   const { t } = useLanguage();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,10 +34,12 @@ function TasksPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">{t.tasksTitle}</h1>
-        <p className="text-slate-500 text-sm">{t.tasksSubtitle}</p>
-      </div>
+      {!hideHeader && (
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">{t.tasksTitle}</h1>
+          <p className="text-slate-500 text-sm">{t.tasksSubtitle}</p>
+        </div>
+      )}
 
       <TaskInput onTaskCreated={loadTasks} />
 
@@ -69,7 +71,7 @@ function TasksPage() {
         <TaskList
           tasks={tasks}
           onRefresh={loadTasks}
-          showActions={filter === 'active'}
+          filter={filter}
         />
       )}
     </div>

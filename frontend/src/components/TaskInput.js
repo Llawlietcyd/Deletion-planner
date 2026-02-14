@@ -15,6 +15,7 @@ function TaskInput({ onTaskCreated }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState(0);
+  const [category, setCategory] = useState('unclassified');
   const [batchText, setBatchText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -28,10 +29,11 @@ function TaskInput({ onTaskCreated }) {
     setLoading(true);
     setError('');
     try {
-      await createTask(title, description, priority);
+      await createTask(title, description, priority, category);
       setTitle('');
       setDescription('');
       setPriority(0);
+      setCategory('unclassified');
       onTaskCreated();
     } catch (err) {
       setError(err.message);
@@ -54,6 +56,13 @@ function TaskInput({ onTaskCreated }) {
     }
     setLoading(false);
   };
+
+  const CATEGORY_OPTIONS = [
+    { value: 'unclassified', label: t.catUnclassified },
+    { value: 'core', label: t.catCore },
+    { value: 'deferrable', label: t.catDeferrable },
+    { value: 'deletion_candidate', label: t.catDeletion },
+  ];
 
   return (
     <div className="card">
@@ -124,6 +133,20 @@ function TaskInput({ onTaskCreated }) {
                 </button>
               ))}
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-500">{t.categoryLabel}:</span>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand/30"
+            >
+              {CATEGORY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
           <button
             type="submit"

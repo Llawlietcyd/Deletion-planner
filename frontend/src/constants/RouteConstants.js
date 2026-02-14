@@ -1,5 +1,10 @@
 export const ROUTE_CONSTANTS = {
   HOME: '/',
+  INBOX: '/inbox',
+  TODAY: '/today',
+  REVIEW: '/review',
+  INSIGHTS: '/insights',
+  SETTINGS: '/settings',
   PLAN: '/plan',
   HISTORY: '/history',
   STATS: '/stats',

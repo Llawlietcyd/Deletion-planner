@@ -9,39 +9,40 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f8fafc;
+  background: radial-gradient(1200px 700px at 15% -10%, #f8fbff 0%, #f4f6fb 35%, #f2f4f8 100%);
+  color: #0f172a;
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-brand hover:bg-brand-dark text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200 shadow-sm;
   }
 
   .btn-danger {
-    @apply bg-deletion hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-red-600 hover:bg-red-500 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200 shadow-sm;
   }
 
   .btn-ghost {
-    @apply text-slate-600 hover:bg-slate-100 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply text-slate-600 hover:bg-white/70 font-medium py-2 px-4 rounded-xl transition-all duration-200 border border-slate-200/70;
   }
 
   .card {
-    @apply bg-white shadow-sm rounded-xl p-6 border border-slate-200;
+    @apply bg-white/80 backdrop-blur-sm shadow-sm rounded-2xl p-6 border border-slate-200/70;
   }
 
   .badge-core {
-    @apply inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700;
+    @apply inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100;
   }
 
   .badge-deferrable {
-    @apply inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700;
+    @apply inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100;
   }
 
   .badge-deletion {
-    @apply inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700;
+    @apply inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-100;
   }
 
   .badge-completed {
-    @apply inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700;
+    @apply inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-100;
   }
 }

@@ -45,6 +45,15 @@ def GeneratePlanHandler(req):
         # Use the planner engine to generate a plan
         plan_result = generate_daily_plan(active_tasks, target_date, lang=lang)
 
+        # Persist latest AI classification back to task records for UI display.
+        category_by_id = {
+            item["task_id"]: item.get("category", "unclassified")
+            for item in plan_result.get("classified_tasks", [])
+        }
+        for task in active_tasks:
+            if task.id in category_by_id:
+                task.category = category_by_id[task.id]
+
         # Create the DailyPlan record
         daily_plan = DailyPlan(
             date=target_date,

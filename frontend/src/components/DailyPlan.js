@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { generatePlan, getTodayPlan, submitFeedback } from '../http/api';
+import {
+  generatePlan,
+  getTodayPlan,
+  submitFeedback,
+  getTasks,
+  updateTask,
+  deleteTask,
+} from '../http/api';
 import { useLanguage } from '../i18n/LanguageContext';
 import DeletionSuggestion from './DeletionSuggestion';
 
@@ -11,6 +18,7 @@ function DailyPlan() {
   const [error, setError] = useState('');
   const [feedbackMode, setFeedbackMode] = useState(false);
   const [taskStatuses, setTaskStatuses] = useState({});
+  const [activeTasks, setActiveTasks] = useState([]);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -30,6 +38,19 @@ function DailyPlan() {
   useEffect(() => {
     loadTodayPlan();
   }, [loadTodayPlan]);
+
+  const loadActiveTasks = useCallback(async () => {
+    try {
+      const data = await getTasks('active');
+      setActiveTasks(data || []);
+    } catch {
+      setActiveTasks([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadActiveTasks();
+  }, [loadActiveTasks]);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -70,6 +91,26 @@ function DailyPlan() {
       }
       setFeedbackMode(false);
       loadTodayPlan();
+      loadActiveTasks();
+    } catch (err) {
+      setError(err.message);
+    }
+    setLoading(false);
+  };
+
+  const handleQuickAction = async (taskId, action) => {
+    setLoading(true);
+    setError('');
+    try {
+      if (action === 'complete') {
+        await updateTask(taskId, { status: 'completed' });
+      } else if (action === 'defer') {
+        await updateTask(taskId, { deferral_count_delta: 1 });
+      } else if (action === 'delete') {
+        await deleteTask(taskId);
+      }
+      await loadActiveTasks();
+      await loadTodayPlan();
     } catch (err) {
       setError(err.message);
     }
@@ -134,6 +175,46 @@ function DailyPlan() {
           </div>
         </div>
       )}
+
+      <div className="card">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold text-slate-800">{t.todayActionsTitle}</h2>
+          <span className="text-xs text-slate-500">{t.taskCount(activeTasks.length)}</span>
+        </div>
+        {activeTasks.length === 0 ? (
+          <p className="text-sm text-slate-500">{t.noActiveTasks}</p>
+        ) : (
+          <div className="space-y-2">
+            {activeTasks.slice(0, 6).map((task) => (
+              <div key={task.id} className="border border-slate-200 rounded-lg p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-slate-700 truncate">{task.title}</p>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleQuickAction(task.id, 'complete')}
+                      className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
+                    >
+                      {t.btnDone}
+                    </button>
+                    <button
+                      onClick={() => handleQuickAction(task.id, 'defer')}
+                      className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200"
+                    >
+                      {t.btnDefer}
+                    </button>
+                    <button
+                      onClick={() => handleQuickAction(task.id, 'delete')}
+                      className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    >
+                      {t.deleteBtn}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {plan?.tasks && plan.tasks.length > 0 ? (
         <div className="space-y-2">
@@ -216,6 +297,9 @@ function DailyPlan() {
       {deletionSuggestions.length > 0 && (
         <DeletionSuggestion
           suggestions={deletionSuggestions}
+          onSuggestionDeleted={(taskId) => {
+            setDeletionSuggestions((prev) => prev.filter((s) => s.id !== taskId));
+          }}
           onDismiss={() => setDeletionSuggestions([])}
         />
       )}

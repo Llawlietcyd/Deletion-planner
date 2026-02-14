@@ -94,8 +94,20 @@ def generate_daily_plan(tasks, target_date: str, lang: str = "en") -> Dict[str, 
 
     # Format selected tasks for the response
     selected_formatted = [
-        {"task_id": t["id"], "reason": t.get("ai_reason", "")}
+        {
+            "task_id": t["id"],
+            "reason": t.get("ai_reason", ""),
+            "category": t.get("ai_category", "unclassified"),
+        }
         for t in selected
+    ]
+
+    classified_tasks = [
+        {
+            "task_id": t.id,
+            "category": category_map.get(t.id, {}).get("category", "unclassified"),
+        }
+        for t in tasks
     ]
 
     return {
@@ -105,6 +117,7 @@ def generate_daily_plan(tasks, target_date: str, lang: str = "en") -> Dict[str, 
         "reasoning": reasoning,
         "overload_warning": overload_warning,
         "max_tasks": max_tasks,
+        "classified_tasks": classified_tasks,
     }
 
 

@@ -2,10 +2,25 @@ const translations = {
   en: {
     // Navbar
     appName: 'Deletion Planner',
+    navInbox: 'Inbox',
+    navToday: 'Today',
+    navReview: 'Review',
+    navInsights: 'Insights',
+    navSettings: 'Settings',
     navTasks: 'Tasks',
     navPlan: 'Daily Plan',
     navHistory: 'History',
     navStats: 'Stats',
+    inboxTitle: 'Inbox',
+    inboxSubtitle: 'Capture and triage tasks quickly before planning.',
+    todayTitle: 'Today',
+    todaySubtitle: 'Execute what matters with a focused daily workflow.',
+    reviewTitle: 'Review',
+    reviewSubtitle: 'Review decisions, deletion suggestions, and history.',
+    insightsTitle: 'Insights',
+    insightsSubtitle: 'Track planning quality and execution outcomes.',
+    settingsTitle: 'Settings',
+    settingsSubtitle: 'Manage language and system checks.',
 
     // Tasks Page
     tasksTitle: 'Tasks',
@@ -16,6 +31,7 @@ const translations = {
     taskPlaceholder: 'What needs to be done?',
     descPlaceholder: 'Description (optional)',
     priorityLabel: 'Priority',
+    categoryLabel: 'Category',
     priorityLow: 'Low',
     priorityMedium: 'Medium',
     priorityHigh: 'High',
@@ -33,6 +49,8 @@ const translations = {
     taskCount: (n) => `${n} task${n !== 1 ? 's' : ''}`,
     loadingTasks: 'Loading tasks...',
     deleteConfirm: 'Delete this task?',
+    completeConfirm: 'Mark this task as completed?',
+    dragToReorder: 'Drag to reorder',
 
     // Task Categories
     catCore: 'Core',
@@ -60,12 +78,16 @@ const translations = {
     btnDefer: 'Defer',
     unknownTask: 'Unknown task',
     noActiveTasks: 'No active tasks to plan',
+    todayActionsTitle: 'Today action panel',
 
     // Deletion Suggestions
     deletionTitle: 'Deletion Suggestions',
     deletionIntro: 'The following tasks have been repeatedly deferred. Consider removing them —',
     deletionPhilosophy: ' if everything is important, nothing is important.',
     deleteBtn: 'Delete',
+    permanentDeleteBtn: 'Delete Forever',
+    permanentDeleteConfirm: 'Permanently delete this task? This cannot be undone.',
+    markCompletedBtn: 'Mark as completed',
     keepBtn: 'Keep',
 
     // History
@@ -93,15 +115,37 @@ const translations = {
     completionOf: (done, total) => `${done} of ${total} planned tasks completed`,
     philosophyQuote: '"If everything is important, nothing is important."',
     philosophySub: 'Deletion Philosophy — Focus on fewer, meaningful tasks',
+    languageSetting: 'Language',
+    languageEnglish: 'Current language: English',
+    languageChinese: 'Current language: Chinese',
+    switchLanguage: 'Switch language',
+    systemStatus: 'System status',
+    backendHealthy: 'Backend is healthy.',
+    backendUnhealthy: 'Backend is unavailable.',
   },
 
   zh: {
     // 导航栏
     appName: '删除规划助手',
+    navInbox: '收件箱',
+    navToday: '今日',
+    navReview: '复盘',
+    navInsights: '洞察',
+    navSettings: '设置',
     navTasks: '任务',
     navPlan: '每日计划',
     navHistory: '历史',
     navStats: '统计',
+    inboxTitle: '收件箱',
+    inboxSubtitle: '快速记录并整理任务，再进入计划。',
+    todayTitle: '今日执行',
+    todaySubtitle: '聚焦关键任务，完成今天真正重要的事。',
+    reviewTitle: '复盘',
+    reviewSubtitle: '查看删除建议、历史决策与执行轨迹。',
+    insightsTitle: '数据洞察',
+    insightsSubtitle: '追踪计划质量与执行效果。',
+    settingsTitle: '设置',
+    settingsSubtitle: '管理语言与系统状态。',
 
     // 任务页面
     tasksTitle: '任务',
@@ -112,6 +156,7 @@ const translations = {
     taskPlaceholder: '需要做什么？',
     descPlaceholder: '描述（可选）',
     priorityLabel: '优先级',
+    categoryLabel: '分类',
     priorityLow: '低',
     priorityMedium: '中',
     priorityHigh: '高',
@@ -129,6 +174,8 @@ const translations = {
     taskCount: (n) => `${n} 个任务`,
     loadingTasks: '加载任务中...',
     deleteConfirm: '确定删除这个任务？',
+    completeConfirm: '确定将这个任务标记为已完成？',
+    dragToReorder: '拖拽排序',
 
     // 任务分类
     catCore: '核心',
@@ -156,12 +203,16 @@ const translations = {
     btnDefer: '推迟',
     unknownTask: '未知任务',
     noActiveTasks: '没有活跃的任务可供规划',
+    todayActionsTitle: '今日行动面板',
 
     // 删除建议
     deletionTitle: '删除建议',
     deletionIntro: '以下任务被反复推迟，考虑删除它们——',
     deletionPhilosophy: '如果所有事情都重要，那就没有事情是重要的。',
     deleteBtn: '删除',
+    permanentDeleteBtn: '彻底删除',
+    permanentDeleteConfirm: '确定彻底删除这个任务？此操作无法撤销。',
+    markCompletedBtn: '标记为已完成',
     keepBtn: '保留',
 
     // 历史
@@ -189,6 +240,13 @@ const translations = {
     completionOf: (done, total) => `${total} 个计划任务中完成了 ${done} 个`,
     philosophyQuote: '"如果所有事情都重要，那就没有事情是重要的。"',
     philosophySub: '删除哲学 —— 专注于更少但更有意义的任务',
+    languageSetting: '语言',
+    languageEnglish: '当前语言：英文',
+    languageChinese: '当前语言：中文',
+    switchLanguage: '切换语言',
+    systemStatus: '系统状态',
+    backendHealthy: '后端服务正常。',
+    backendUnhealthy: '后端服务不可用。',
   },
 };
 

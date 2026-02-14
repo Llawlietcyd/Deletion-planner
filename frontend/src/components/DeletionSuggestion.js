@@ -2,12 +2,15 @@ import React from 'react';
 import { deleteTask } from '../http/api';
 import { useLanguage } from '../i18n/LanguageContext';
 
-function DeletionSuggestion({ suggestions, onDismiss }) {
+function DeletionSuggestion({ suggestions, onDismiss, onSuggestionDeleted }) {
   const { t } = useLanguage();
 
   const handleAcceptDeletion = async (taskId) => {
     try {
       await deleteTask(taskId);
+      if (onSuggestionDeleted) {
+        onSuggestionDeleted(taskId);
+      }
       if (suggestions.length <= 1) {
         onDismiss();
       }

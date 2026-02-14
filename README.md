@@ -79,8 +79,9 @@ User enters 10 tasks
 | Layer | Technology |
 |-------|-----------|
 | **Frontend** | React 18 + Tailwind CSS |
-| **Backend** | Flask (Python) |
-| **Database** | SQLite via SQLAlchemy ORM |
+| **Backend v1** | Flask (Python) |
+| **Backend v2** | FastAPI + Pydantic |
+| **Database** | SQLite (dev) / PostgreSQL (staging+) via SQLAlchemy ORM |
 | **AI Engine** | Mock rule-based engine (swappable to Claude / OpenAI API) |
 | **i18n** | React Context-based bilingual system (EN / ZH) |
 
@@ -88,9 +89,18 @@ User enters 10 tasks
 
 ```
 Template-Repo/
+├── docker-compose.yml             # Staging-style local stack (frontend + api-v2 + postgres)
+├── docs/
+│   ├── DEPLOYMENT.md              # Staging deployment + rollback
+│   └── WALKTHROUGH_SCRIPT.md      # 5-minute demo script
 ├── frontend/                    # React + Tailwind
 │   └── src/
 │       ├── components/
+│       │   ├── InboxPage.js         # New IA: Inbox
+│       │   ├── TodayPage.js         # New IA: Today
+│       │   ├── ReviewPage.js        # New IA: Review
+│       │   ├── InsightsPage.js      # New IA: Insights
+│       │   ├── SettingsPage.js      # New IA: Settings
 │       │   ├── TaskInput.js         # Task creation (single/batch + priority)
 │       │   ├── TaskList.js          # Task list with category badges
 │       │   ├── TasksPage.js         # Main tasks page with filters
@@ -106,6 +116,10 @@ Template-Repo/
 │       └── constants/RouteConstants.js
 ├── server/                      # Flask backend
 │   ├── app.py                       # Flask entry point (11 API routes)
+│   ├── api_v2/                      # FastAPI v2 service
+│   │   ├── main.py
+│   │   ├── schemas.py
+│   │   └── routers/
 │   ├── api_endpoints/
 │   │   ├── tasks/handler.py         # Task CRUD
 │   │   ├── plans/handler.py         # Plan generation + retrieval
@@ -120,6 +134,8 @@ Template-Repo/
 │   ├── database/
 │   │   ├── models.py                # SQLAlchemy ORM models
 │   │   └── db.py                    # DB session management
+│   ├── migrations/                  # Alembic migrations
+│   ├── tests/                       # API integration tests
 │   ├── requirements.txt
 │   └── Dockerfile
 └── README.md
@@ -132,7 +148,7 @@ Template-Repo/
 - Python 3.9+
 - Node.js 16+
 
-### Backend
+### Backend (Flask v1)
 
 ```bash
 cd server
@@ -141,6 +157,16 @@ flask run
 ```
 
 API available at `http://localhost:5000`.
+
+### Backend (FastAPI v2)
+
+```bash
+cd server
+pip install -r requirements.txt
+uvicorn api_v2.main:app --reload --port 5001
+```
+
+API available at `http://localhost:5001`.
 
 ### Frontend
 
@@ -151,6 +177,17 @@ npm start
 ```
 
 App opens at `http://localhost:3000`.
+
+### Full stack with PostgreSQL (recommended demo mode)
+
+```bash
+docker compose up --build
+```
+
+Use:
+- Frontend: `http://localhost:3000`
+- API v2: `http://localhost:5001`
+- PostgreSQL: `localhost:5432`
 
 ## 9. API Reference
 
@@ -168,7 +205,27 @@ App opens at `http://localhost:3000`.
 | `GET` | `/api/history` | Task action history |
 | `GET` | `/api/stats` | Summary statistics |
 
-## 10. AI / LLM Architecture
+### v2 endpoints
+
+All v1 route shapes are available in FastAPI v2 under:
+- `http://localhost:5001/api/*`
+- OpenAPI docs: `http://localhost:5001/docs`
+
+## 10. Testing
+
+### Backend
+```bash
+cd server
+python -m pytest tests/test_api_v2.py -q
+```
+
+### Frontend
+```bash
+cd frontend
+npm test -- --watchAll=false --runTestsByPath src/components/TaskList.test.js
+```
+
+## 11. AI / LLM Architecture
 
 The system uses a **pluggable LLM abstraction layer**:
 
@@ -192,7 +249,7 @@ LLM_PROVIDER=claude  # future
 LLM_PROVIDER=openai  # future
 ```
 
-## 11. Deletion Philosophy
+## 12. Deletion Philosophy
 
 This project is built on the philosophy of [Deletion](https://anote-ai.medium.com/deletion-a-philosophy-for-building-great-things-bd08378d3f23) — the disciplined practice of removing everything unnecessary so only the essentials remain.
 
@@ -207,7 +264,7 @@ This project is built on the philosophy of [Deletion](https://anote-ai.medium.co
 - An AI assistant that helps you decide what to **stop doing**
 - A system that prioritizes **focus over volume**
 
-## 12. Success Criteria
+## 13. Success Criteria
 
 The project succeeds if:
 

@@ -24,10 +24,10 @@ export async function getTasks(status = 'active') {
   return apiRequest(`/api/tasks?status=${status}`);
 }
 
-export async function createTask(title, description = '', priority = 0) {
+export async function createTask(title, description = '', priority = 0, category = 'unclassified') {
   return apiRequest('/api/tasks', {
     method: 'POST',
-    body: JSON.stringify({ title, description, priority }),
+    body: JSON.stringify({ title, description, priority, category }),
   });
 }
 
@@ -45,8 +45,16 @@ export async function updateTask(taskId, updates) {
   });
 }
 
-export async function deleteTask(taskId) {
-  return apiRequest(`/api/tasks/${taskId}`, {
+export async function reorderTasks(orderedTaskIds) {
+  return apiRequest('/api/tasks/reorder', {
+    method: 'PUT',
+    body: JSON.stringify({ ordered_task_ids: orderedTaskIds }),
+  });
+}
+
+export async function deleteTask(taskId, hard = false) {
+  const suffix = hard ? '?hard=true' : '';
+  return apiRequest(`/api/tasks/${taskId}${suffix}`, {
     method: 'DELETE',
   });
 }
@@ -75,8 +83,8 @@ export async function submitFeedback(date, results, lang = 'en') {
 }
 
 // ── Stats & History APIs ────────────────────────────────────
-export async function getHistory(taskId = null, limit = 50) {
-  let url = `/api/history?limit=${limit}`;
+export async function getHistory(taskId = null, limit = 50, offset = 0) {
+  let url = `/api/history?limit=${limit}&offset=${offset}`;
   if (taskId) url += `&task_id=${taskId}`;
   return apiRequest(url);
 }

@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 import sys
+import time
+import logging
 
 # Add the server directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -9,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from database.db import init_db
 from api_endpoints.tasks.handler import (
     ListTasksHandler, CreateTaskHandler, BatchCreateTasksHandler,
-    UpdateTaskHandler, DeleteTaskHandler,
+    UpdateTaskHandler, DeleteTaskHandler, ReorderTasksHandler,
 )
 from api_endpoints.plans.handler import (
     GeneratePlanHandler, GetPlanHandler, GetTodayPlanHandler,
@@ -20,10 +22,33 @@ from api_endpoints.feedback.handler import (
 
 app = Flask(__name__)
 CORS(app)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+logger = logging.getLogger("deletion-planner-flask")
 
 # Initialize database on startup
 with app.app_context():
     init_db()
+
+
+@app.before_request
+def _before_request():
+    request._start_time = time.perf_counter()
+
+
+@app.after_request
+def _after_request(response):
+    duration_ms = (time.perf_counter() - getattr(request, "_start_time", time.perf_counter())) * 1000
+    logger.info(
+        "request method=%s path=%s status=%s duration_ms=%.2f",
+        request.method,
+        request.path,
+        response.status_code,
+        duration_ms,
+    )
+    return response
 
 # ── Health Check ─────────────────────────────────────────────
 @app.route("/health", methods=["GET"])
@@ -50,6 +75,10 @@ def update_task(task_id):
 @app.route("/api/tasks/<int:task_id>", methods=["DELETE"])
 def delete_task(task_id):
     return DeleteTaskHandler(request, task_id)
+
+@app.route("/api/tasks/reorder", methods=["PUT"])
+def reorder_tasks():
+    return ReorderTasksHandler(request)
 
 # ── Plan Endpoints ───────────────────────────────────────────
 @app.route("/api/plans/generate", methods=["POST"])

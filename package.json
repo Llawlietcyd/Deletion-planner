@@ -4,6 +4,9 @@
   "description": "Deletion-Aware Adaptive Daily Planning Assistant",
   "scripts": {
     "dev": "concurrently \"cd frontend && npm start\" \"cd server && flask run\"",
+    "dev:v2": "concurrently \"cd frontend && npm start\" \"cd server && uvicorn api_v2.main:app --reload --port 5001\"",
+    "server:v2": "cd server && uvicorn api_v2.main:app --reload --port 5001",
+    "migrate": "cd server && alembic -c alembic.ini upgrade head",
     "build": "cd frontend && npm run build"
   },
   "keywords": ["ai", "planning", "productivity", "deletion-philosophy"],

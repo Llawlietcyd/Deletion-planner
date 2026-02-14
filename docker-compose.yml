@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: deletion_planner
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d deletion_planner"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api-v2:
+    build:
+      context: ./server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/deletion_planner
+      LLM_PROVIDER: mock
+      PORT: 5001
+      APP_MODULE: api_v2.main:app
+    command: ["sh", "-c", "uvicorn api_v2.main:app --host 0.0.0.0 --port 5001"]
+    ports:
+      - "5001:5001"
+
+  frontend:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    environment:
+      REACT_APP_API_ENDPOINT: http://localhost:5001
+      CHOKIDAR_USEPOLLING: "true"
+    command: ["sh", "-c", "npm install && npm start"]
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-v2
+
+volumes:
+  pg_data:

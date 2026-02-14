@@ -52,6 +52,8 @@ def SubmitFeedbackHandler(req):
             if new_status == PlanTaskStatus.COMPLETED.value:
                 task.completion_count += 1
                 task.status = TaskStatus.COMPLETED.value
+                task.source = "manual"
+                task.decision_reason = "Completed from daily feedback."
                 action = HistoryAction.COMPLETED.value
                 reasoning = "Task completed by user."
             elif new_status == PlanTaskStatus.MISSED.value:
@@ -59,6 +61,8 @@ def SubmitFeedbackHandler(req):
                 reasoning = "Task was planned but not completed."
             elif new_status == PlanTaskStatus.DEFERRED.value:
                 task.deferral_count += 1
+                task.source = "manual"
+                task.decision_reason = "Deferred from daily feedback."
                 action = HistoryAction.DEFERRED.value
                 reasoning = f"Task deferred (total deferrals: {task.deferral_count})."
             else:
@@ -92,12 +96,13 @@ def GetHistoryHandler(req):
     """GET /api/history — get task history with optional filters."""
     task_id = req.args.get("task_id")
     limit = int(req.args.get("limit", 50))
+    offset = int(req.args.get("offset", 0))
 
     with get_db() as db:
         query = db.query(TaskHistory)
         if task_id:
             query = query.filter(TaskHistory.task_id == int(task_id))
-        records = query.order_by(TaskHistory.created_at.desc()).limit(limit).all()
+        records = query.order_by(TaskHistory.created_at.desc()).offset(offset).limit(limit).all()
         return jsonify([r.to_dict() for r in records])
 
 

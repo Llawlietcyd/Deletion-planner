@@ -1,5 +1,5 @@
-import React from 'react';
-import { deleteTask } from '../http/api';
+import React, { useEffect, useMemo, useState } from 'react';
+import { deleteTask, reorderTasks, updateTask } from '../http/api';
 import { useLanguage } from '../i18n/LanguageContext';
 
 const PRIORITY_DOT = {
@@ -9,8 +9,17 @@ const PRIORITY_DOT = {
   5: 'bg-red-500',
 };
 
-function TaskList({ tasks, onRefresh, showActions = true }) {
+function TaskList({ tasks, onRefresh, filter = 'active' }) {
   const { t } = useLanguage();
+  const [orderedTasks, setOrderedTasks] = useState(tasks || []);
+  const [draggedTaskId, setDraggedTaskId] = useState(null);
+  const [dropTargetTaskId, setDropTargetTaskId] = useState(null);
+
+  useEffect(() => {
+    setOrderedTasks(tasks || []);
+  }, [tasks]);
+
+  const isDragEnabled = useMemo(() => filter === 'active', [filter]);
 
   const CATEGORY_BADGE = {
     core: 'badge-core',
@@ -33,13 +42,66 @@ function TaskList({ tasks, onRefresh, showActions = true }) {
     5: t.priorityUrgent,
   };
 
-  const handleDelete = async (taskId) => {
-    if (!window.confirm(t.deleteConfirm)) return;
+  const handleDelete = async (taskId, hard = false) => {
+    const confirmMsg = hard ? t.permanentDeleteConfirm : t.deleteConfirm;
+    if (!window.confirm(confirmMsg)) return;
     try {
-      await deleteTask(taskId);
+      await deleteTask(taskId, hard);
       onRefresh();
     } catch (err) {
       alert(err.message);
+    }
+  };
+
+  const handleComplete = async (taskId) => {
+    if (!window.confirm(t.completeConfirm)) return;
+    try {
+      await updateTask(taskId, { status: 'completed' });
+      onRefresh();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDragStart = (taskId) => {
+    if (!isDragEnabled) return;
+    setDraggedTaskId(taskId);
+  };
+
+  const handleDragOver = (e, taskId) => {
+    if (!isDragEnabled) return;
+    e.preventDefault();
+    setDropTargetTaskId(taskId);
+  };
+
+  const handleDrop = async (targetTaskId) => {
+    if (!isDragEnabled || !draggedTaskId || draggedTaskId === targetTaskId) {
+      setDraggedTaskId(null);
+      setDropTargetTaskId(null);
+      return;
+    }
+
+    const fromIdx = orderedTasks.findIndex((t) => t.id === draggedTaskId);
+    const toIdx = orderedTasks.findIndex((t) => t.id === targetTaskId);
+    if (fromIdx < 0 || toIdx < 0) {
+      setDraggedTaskId(null);
+      setDropTargetTaskId(null);
+      return;
+    }
+
+    const next = [...orderedTasks];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    setOrderedTasks(next);
+    setDraggedTaskId(null);
+    setDropTargetTaskId(null);
+
+    try {
+      await reorderTasks(next.map((t) => t.id));
+      onRefresh();
+    } catch (err) {
+      alert(err.message);
+      onRefresh();
     }
   };
 
@@ -54,15 +116,32 @@ function TaskList({ tasks, onRefresh, showActions = true }) {
 
   return (
     <div className="space-y-2">
-      {tasks.map((task) => {
+      {orderedTasks.map((task) => {
         const dotColor = PRIORITY_DOT[task.priority] || '';
         return (
           <div
             key={task.id}
-            className="card flex items-start justify-between gap-3 !p-4"
+            draggable={isDragEnabled}
+            onDragStart={() => handleDragStart(task.id)}
+            onDragOver={(e) => handleDragOver(e, task.id)}
+            onDrop={() => handleDrop(task.id)}
+            onDragEnd={() => {
+              setDraggedTaskId(null);
+              setDropTargetTaskId(null);
+            }}
+            className={`card flex items-start justify-between gap-3 !p-4 transition-all ${
+              isDragEnabled ? 'cursor-grab active:cursor-grabbing' : ''
+            } ${
+              dropTargetTaskId === task.id ? 'ring-2 ring-brand/30 -translate-y-0.5' : ''
+            }`}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
+                {isDragEnabled && (
+                  <span className="text-slate-300 text-sm select-none" title={t.dragToReorder}>
+                    ⋮⋮
+                  </span>
+                )}
                 {/* Priority dot */}
                 {dotColor && (
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`}
@@ -97,17 +176,35 @@ function TaskList({ tasks, onRefresh, showActions = true }) {
               </div>
             </div>
 
-            {showActions && (
-              <button
-                onClick={() => handleDelete(task.id)}
-                className="text-slate-400 hover:text-deletion transition-colors p-1"
-                title={t.deleteBtn}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            )}
+            <div className="flex items-center gap-1">
+              {filter === 'active' && (
+                <>
+                  <button
+                    onClick={() => handleComplete(task.id)}
+                    className="text-xs px-2.5 py-1.5 rounded-md bg-green-100 text-green-700 hover:bg-green-200 font-medium"
+                    title={t.markCompletedBtn}
+                  >
+                    {t.btnDone}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(task.id, false)}
+                    className="text-xs px-2.5 py-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium"
+                    title={t.deleteBtn}
+                  >
+                    {t.deleteBtn}
+                  </button>
+                </>
+              )}
+              {filter === 'deleted' && (
+                <button
+                  onClick={() => handleDelete(task.id, true)}
+                  className="text-xs px-2.5 py-1.5 rounded-md bg-red-100 text-red-700 hover:bg-red-200 font-medium"
+                  title={t.permanentDeleteBtn}
+                >
+                  {t.permanentDeleteBtn}
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
