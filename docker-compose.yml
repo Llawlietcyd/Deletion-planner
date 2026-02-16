@@ -40,6 +40,7 @@ services:
     environment:
       REACT_APP_API_ENDPOINT: http://localhost:5001
       CHOKIDAR_USEPOLLING: "true"
+      BROWSER: "none"
     command: ["sh", "-c", "npm install && npm start"]
     ports:
       - "3000:3000"

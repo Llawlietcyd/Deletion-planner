@@ -10,7 +10,7 @@ import {
 import { useLanguage } from '../i18n/LanguageContext';
 import DeletionSuggestion from './DeletionSuggestion';
 
-function DailyPlan() {
+function DailyPlan({ refreshSignal = 0, minimal = false }) {
   const { lang, t } = useLanguage();
   const [plan, setPlan] = useState(null);
   const [deletionSuggestions, setDeletionSuggestions] = useState([]);
@@ -19,6 +19,7 @@ function DailyPlan() {
   const [feedbackMode, setFeedbackMode] = useState(false);
   const [taskStatuses, setTaskStatuses] = useState({});
   const [activeTasks, setActiveTasks] = useState([]);
+  const [showInsights, setShowInsights] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -37,7 +38,7 @@ function DailyPlan() {
 
   useEffect(() => {
     loadTodayPlan();
-  }, [loadTodayPlan]);
+  }, [loadTodayPlan, refreshSignal]);
 
   const loadActiveTasks = useCallback(async () => {
     try {
@@ -50,7 +51,7 @@ function DailyPlan() {
 
   useEffect(() => {
     loadActiveTasks();
-  }, [loadActiveTasks]);
+  }, [loadActiveTasks, refreshSignal]);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -132,79 +133,54 @@ function DailyPlan() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      {!minimal && (
+        <div className="flex gap-2">
           <h1 className="text-2xl font-bold text-slate-800">{t.dailyPlanTitle}</h1>
           <p className="text-slate-500 text-sm">{today}</p>
         </div>
-        <div className="flex gap-2">
-          {plan && !feedbackMode && (
-            <button onClick={() => setFeedbackMode(true)} className="btn-ghost">
-              {t.giveFeedback}
-            </button>
-          )}
-          {!plan && (
-            <button onClick={handleGenerate} disabled={loading} className="btn-primary">
-              {loading ? t.generating : t.generatePlan}
-            </button>
-          )}
-        </div>
-      </div>
+      )}
 
       {error && (
-        <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</div>
-      )}
-
-      {plan?.reasoning && (
-        <div className="card !bg-brand/5 !border-brand/20">
-          <div className="flex items-start gap-3">
-            <span className="text-xl mt-0.5">🤖</span>
-            <div>
-              <p className="font-medium text-brand text-sm mb-1">{t.aiReasoning}</p>
-              <p className="text-slate-700 text-sm leading-relaxed">{plan.reasoning}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {plan?.overload_warning && (
-        <div className="card !bg-amber-50 !border-amber-200">
-          <div className="flex items-start gap-3">
-            <span className="text-xl mt-0.5">⚠️</span>
-            <p className="text-amber-800 text-sm">{plan.overload_warning}</p>
-          </div>
-        </div>
+        <div className="text-sm text-red-600 bg-red-50/80 p-3 rounded-2xl">{error}</div>
       )}
 
       <div className="card">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-slate-800">{t.todayActionsTitle}</h2>
-          <span className="text-xs text-slate-500">{t.taskCount(activeTasks.length)}</span>
+          <div>
+            <h2 className="text-lg font-medium text-slate-900">{t.todayFocusTitle}</h2>
+            <p className="text-xs text-slate-500 mt-1">{t.todayFocusSubtitle}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {!plan && (
+              <button onClick={handleGenerate} disabled={loading} className="btn-primary">
+                {loading ? t.generating : t.generatePlan}
+              </button>
+            )}
+            {plan && !feedbackMode && !minimal && (
+              <button onClick={() => setFeedbackMode(true)} className="btn-ghost">
+                {t.giveFeedback}
+              </button>
+            )}
+          </div>
         </div>
         {activeTasks.length === 0 ? (
-          <p className="text-sm text-slate-500">{t.noActiveTasks}</p>
+          <p className="text-sm text-slate-500">{t.todayNoFocus}</p>
         ) : (
-          <div className="space-y-2">
-            {activeTasks.slice(0, 6).map((task) => (
-              <div key={task.id} className="border border-slate-200 rounded-lg p-3">
+          <div className="space-y-3">
+            {activeTasks.slice(0, 5).map((task) => (
+              <div key={task.id} className="rounded-2xl bg-white p-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-slate-700 truncate">{task.title}</p>
-                  <div className="flex gap-1">
+                  <p className="text-[16px] font-medium text-slate-800 truncate">{task.title}</p>
+                  <div className="flex gap-2">
                     <button
                       onClick={() => handleQuickAction(task.id, 'complete')}
-                      className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
+                      className="text-xs px-3 py-1.5 rounded-full bg-[#007AFF]/10 text-[#007AFF] hover:bg-[#007AFF]/15"
                     >
                       {t.btnDone}
                     </button>
                     <button
-                      onClick={() => handleQuickAction(task.id, 'defer')}
-                      className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200"
-                    >
-                      {t.btnDefer}
-                    </button>
-                    <button
                       onClick={() => handleQuickAction(task.id, 'delete')}
-                      className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      className="text-xs px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200"
                     >
                       {t.deleteBtn}
                     </button>
@@ -216,7 +192,7 @@ function DailyPlan() {
         )}
       </div>
 
-      {plan?.tasks && plan.tasks.length > 0 ? (
+      {!minimal && plan?.tasks && plan.tasks.length > 0 ? (
         <div className="space-y-2">
           {plan.tasks.map((pt) => (
             <div key={pt.id} className="card !p-4 flex items-center justify-between gap-3">
@@ -276,7 +252,7 @@ function DailyPlan() {
         </div>
       ) : null}
 
-      {feedbackMode && (
+      {!minimal && feedbackMode && (
         <div className="flex gap-2">
           <button
             onClick={handleSubmitFeedback}
@@ -294,15 +270,36 @@ function DailyPlan() {
         </div>
       )}
 
-      {deletionSuggestions.length > 0 && (
-        <DeletionSuggestion
-          suggestions={deletionSuggestions}
-          onSuggestionDeleted={(taskId) => {
-            setDeletionSuggestions((prev) => prev.filter((s) => s.id !== taskId));
-          }}
-          onDismiss={() => setDeletionSuggestions([])}
-        />
+      {(plan?.reasoning || plan?.overload_warning || deletionSuggestions.length > 0) && (
+        <div className="card">
+          <button
+            onClick={() => setShowInsights((v) => !v)}
+            className="w-full text-left text-sm text-slate-500 hover:text-slate-700 transition-colors"
+          >
+            {showInsights ? t.todayHideInsights : t.todayShowInsights}
+          </button>
+          {showInsights && (
+            <div className="mt-3 space-y-3">
+              {plan?.reasoning && (
+                <p className="text-sm text-slate-600 leading-relaxed">{plan.reasoning}</p>
+              )}
+              {plan?.overload_warning && (
+                <p className="text-sm text-amber-700">{plan.overload_warning}</p>
+              )}
+              {deletionSuggestions.length > 0 && (
+                <DeletionSuggestion
+                  suggestions={deletionSuggestions}
+                  onSuggestionDeleted={(taskId) => {
+                    setDeletionSuggestions((prev) => prev.filter((s) => s.id !== taskId));
+                  }}
+                  onDismiss={() => setDeletionSuggestions([])}
+                />
+              )}
+            </div>
+          )}
+        </div>
       )}
+
     </div>
   );
 }

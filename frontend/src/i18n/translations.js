@@ -79,6 +79,12 @@ const translations = {
     unknownTask: 'Unknown task',
     noActiveTasks: 'No active tasks to plan',
     todayActionsTitle: 'Today action panel',
+    todayQuickAddPlaceholder: 'Add what truly matters today',
+    todayFocusTitle: 'Focus for today',
+    todayFocusSubtitle: 'Keep only 3-5 meaningful tasks in view.',
+    todayNoFocus: 'No active tasks yet. Add one to begin.',
+    todayShowInsights: 'Show planning insights',
+    todayHideInsights: 'Hide planning insights',
 
     // Deletion Suggestions
     deletionTitle: 'Deletion Suggestions',
@@ -204,6 +210,12 @@ const translations = {
     unknownTask: '未知任务',
     noActiveTasks: '没有活跃的任务可供规划',
     todayActionsTitle: '今日行动面板',
+    todayQuickAddPlaceholder: '添加今天真正重要的事',
+    todayFocusTitle: '今日聚焦',
+    todayFocusSubtitle: '只保留 3-5 个真正有意义的任务。',
+    todayNoFocus: '目前没有活跃任务，先添加一个开始。',
+    todayShowInsights: '展开规划洞察',
+    todayHideInsights: '收起规划洞察',
 
     // 删除建议
     deletionTitle: '删除建议',

@@ -1,17 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import DailyPlan from './DailyPlan';
+import TaskInput from './TaskInput';
 import { useLanguage } from '../i18n/LanguageContext';
 
 function TodayPage() {
   const { t } = useLanguage();
+  const [refreshSignal, setRefreshSignal] = useState(0);
 
   return (
-    <div className="space-y-4">
-      <div className="card !bg-green-50 !border-green-200">
-        <h1 className="text-xl font-semibold text-slate-800">{t.todayTitle}</h1>
-        <p className="text-sm text-slate-600 mt-1">{t.todaySubtitle}</p>
+    <div className="space-y-6">
+      <div className="pt-2">
+        <p className="text-sm text-slate-500 mb-1">{new Date().toLocaleDateString()}</p>
+        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-slate-900">{t.todayTitle}</h1>
+        <p className="text-sm text-slate-500 mt-2">{t.todaySubtitle}</p>
       </div>
-      <DailyPlan />
+
+      <TaskInput
+        variant="minimal"
+        onTaskCreated={() => setRefreshSignal((v) => v + 1)}
+      />
+
+      <DailyPlan refreshSignal={refreshSignal} minimal />
     </div>
   );
 }
