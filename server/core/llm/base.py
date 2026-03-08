@@ -1,35 +1,37 @@
-"""Abstract base class for LLM services."""
+"""Abstract base class for pluggable LLM decision providers."""
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import Dict, Any, List
 
 
 class BaseLLMService(ABC):
-    """Interface that all LLM providers must implement."""
+    """Provider interface for AI decision support.
 
-    def __init__(self, lang="en"):
+    The rule layer remains deterministic. LLM providers only return
+    structured recommendations that are validated by guardrails.
+    """
+
+    def __init__(self, lang: str = "en"):
         self.lang = lang
 
     @abstractmethod
-    def classify_tasks(self, tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Classify tasks into core / deferrable / deletion_candidate.
+    def recommend_decisions(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Return structured plan decisions.
 
-        Returns:
-            List of dicts: [{"task_id": int, "category": str, "reason": str}, ...]
+        Expected shape:
+            {
+                "keep": [task_id, ...],
+                "defer": [task_id, ...],
+                "delete": [{"task_id": int, "reason": str}, ...],
+                "reasoning": str,
+                "confidence": float
+            }
         """
         ...
 
     @abstractmethod
-    def generate_plan_reasoning(
-        self,
-        selected_tasks: List[Dict[str, Any]],
-        deferred_tasks: List[Dict[str, Any]],
-        deletion_suggestions: List[Dict[str, Any]],
+    def generate_deletion_reasoning(
+        self, task: Dict[str, Any], rule_reasons: List[str]
     ) -> str:
-        """Generate a human-readable reasoning explanation for the daily plan."""
-        ...
-
-    @abstractmethod
-    def generate_deletion_reasoning(self, task: Dict[str, Any]) -> str:
-        """Generate a reasoning explanation for why a task should be deleted."""
+        """Generate a user-facing deletion explanation for one task."""
         ...

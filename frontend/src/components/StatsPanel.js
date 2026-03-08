@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getStats } from '../http/api';
 import { useLanguage } from '../i18n/LanguageContext';
 
-function StatCard({ label, value, sub, color = 'text-slate-800' }) {
+function StatCard({ label, value, sub }) {
   return (
-    <div className="card text-center">
-      <p className={`text-3xl font-bold ${color}`}>{value}</p>
-      <p className="text-sm font-medium text-slate-600 mt-1">{label}</p>
-      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
+    <div className="rounded-[24px] border border-[color:var(--line)] bg-white/70 p-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">{label}</p>
+      <p className="mt-3 text-4xl font-semibold text-[color:var(--text)]">{value}</p>
+      {sub && <p className="mt-2 text-sm text-[color:var(--muted)]">{sub}</p>}
     </div>
   );
 }
@@ -18,74 +18,79 @@ function StatsPanel({ hideHeader = false }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadStats();
-  }, []);
-
-  const loadStats = async () => {
-    setLoading(true);
-    try {
-      const data = await getStats();
-      setStats(data);
-    } catch (err) {
-      console.error(err);
+    let mounted = true;
+    async function loadStats() {
+      setLoading(true);
+      try {
+        const data = await getStats();
+        if (mounted) {
+          setStats(data);
+        }
+      } catch (err) {
+        console.error(err);
+        if (mounted) {
+          setStats(null);
+        }
+      }
+      if (mounted) {
+        setLoading(false);
+      }
     }
-    setLoading(false);
-  };
+
+    loadStats();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   if (loading) {
     return (
-      <div className="card text-center py-10">
-        <p className="text-slate-400">{t.loadingStats}</p>
+      <div className="card text-center">
+        <p className="text-sm text-[color:var(--muted)]">{t.loadingStats}</p>
       </div>
     );
   }
 
   if (!stats) {
     return (
-      <div className="card text-center py-10">
-        <p className="text-slate-400">{t.statsError}</p>
+      <div className="card text-center">
+        <p className="text-sm text-[color:var(--muted)]">{t.statsError}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {!hideHeader && (
-        <h1 className="text-2xl font-bold text-slate-800">{t.statsTitle}</h1>
-      )}
+      {!hideHeader && <h1 className="text-3xl text-[color:var(--text)]">{t.statsTitle}</h1>}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label={t.activeTasks} value={stats.active_tasks} color="text-core" />
-        <StatCard label={t.completedTasks} value={stats.completed_tasks} color="text-success" />
-        <StatCard label={t.deletedTasks} value={stats.deleted_tasks} color="text-deletion" />
-        <StatCard label={t.totalPlans} value={stats.total_plans} color="text-brand" />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label={t.activeTasks} value={stats.active_tasks} />
+        <StatCard label={t.completedTasks} value={stats.completed_tasks} />
+        <StatCard label={t.deletedTasks} value={stats.deleted_tasks} />
+        <StatCard label={t.totalPlans} value={stats.total_plans} />
       </div>
 
       <div className="card">
-        <h3 className="font-semibold text-slate-800 mb-4">{t.completionRate}</h3>
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-brand to-success rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(stats.completion_rate, 100)}%` }}
-              />
-            </div>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+          {t.completionRate}
+        </p>
+        <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center">
+          <div className="h-4 flex-1 overflow-hidden rounded-full bg-[color:var(--bg-strong)]">
+            <div
+              className="h-full rounded-full bg-[color:var(--accent)] transition-all duration-500"
+              style={{ width: `${Math.min(stats.completion_rate, 100)}%` }}
+            />
           </div>
-          <span className="text-2xl font-bold text-slate-800">
-            {stats.completion_rate}%
-          </span>
+          <p className="text-3xl font-semibold text-[color:var(--text)]">{stats.completion_rate}%</p>
         </div>
-        <p className="text-sm text-slate-500 mt-2">
+        <p className="mt-3 text-sm text-[color:var(--muted)]">
           {t.completionOf(stats.completed_plan_tasks, stats.total_plan_tasks)}
         </p>
       </div>
 
-      <div className="card !bg-slate-50 text-center">
-        <p className="text-lg font-medium text-slate-600 italic">
-          {t.philosophyQuote}
-        </p>
-        <p className="text-sm text-slate-400 mt-2">{t.philosophySub}</p>
+      <div className="card bg-[color:var(--bg-strong)]">
+        <p className="text-xl italic text-[color:var(--text)]">{t.philosophyQuote}</p>
+        <p className="mt-3 text-sm leading-6 text-[color:var(--muted)]">{t.philosophySub}</p>
       </div>
     </div>
   );

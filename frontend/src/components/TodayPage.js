@@ -8,19 +8,20 @@ function TodayPage() {
   const [refreshSignal, setRefreshSignal] = useState(0);
 
   return (
-    <div className="space-y-6">
-      <div className="pt-2">
-        <p className="text-sm text-slate-500 mb-1">{new Date().toLocaleDateString()}</p>
-        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-slate-900">{t.todayTitle}</h1>
-        <p className="text-sm text-slate-500 mt-2">{t.todaySubtitle}</p>
-      </div>
+    <div className="space-y-4">
+      <section className="px-1">
+        <h1 className="text-3xl text-[color:var(--text)]">{t.todayTitle}</h1>
+        <p className="mt-2 text-sm text-[color:var(--muted)]">{t.todaySubtitle}</p>
+      </section>
 
-      <TaskInput
-        variant="minimal"
-        onTaskCreated={() => setRefreshSignal((v) => v + 1)}
-      />
+      <section className="card py-4">
+        <TaskInput
+          variant="minimal"
+          onTaskCreated={() => setRefreshSignal((value) => value + 1)}
+        />
+      </section>
 
-      <DailyPlan refreshSignal={refreshSignal} minimal />
+      <DailyPlan refreshSignal={refreshSignal} />
     </div>
   );
 }

@@ -5,13 +5,11 @@ export const ROUTE_CONSTANTS = {
   REVIEW: '/review',
   INSIGHTS: '/insights',
   SETTINGS: '/settings',
-  PLAN: '/plan',
-  HISTORY: '/history',
-  STATS: '/stats',
+
 };
 
 export const API_ENDPOINTS = {
-  BASE_URL: process.env.REACT_APP_API_ENDPOINT || 'http://localhost:5000',
+  BASE_URL: process.env.REACT_APP_API_ENDPOINT || 'http://localhost:5001',
   HEALTH: '/health',
   TASKS: '/api/tasks',
   TASKS_BATCH: '/api/tasks/batch',
@@ -20,4 +18,7 @@ export const API_ENDPOINTS = {
   FEEDBACK: '/api/feedback',
   HISTORY: '/api/history',
   STATS: '/api/stats',
+  WEEKLY_SUMMARY: '/api/weekly-summary',
+  SETTINGS_LLM: '/api/settings/llm',
+  SETTINGS_LLM_TEST: '/api/settings/llm/test',
 };

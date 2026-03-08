@@ -7,51 +7,48 @@ function MainNavbar() {
   const location = useLocation();
   const { lang, toggleLang, t } = useLanguage();
 
-  const NAV_ITEMS = [
+  const navItems = [
     { path: ROUTE_CONSTANTS.TODAY, label: t.navToday },
+    { path: ROUTE_CONSTANTS.INBOX, label: t.navInbox },
     { path: ROUTE_CONSTANTS.REVIEW, label: t.navReview },
-    { path: ROUTE_CONSTANTS.SETTINGS, label: t.navSettings },
   ];
 
+  const isActive = (path) =>
+    location.pathname === path || (path === ROUTE_CONSTANTS.TODAY && location.pathname === '/');
+
   return (
-    <nav className="bg-transparent sticky top-0 z-50">
-      <div className="max-w-5xl mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to={ROUTE_CONSTANTS.TODAY} className="flex items-center gap-2">
-            <span className="text-lg font-semibold tracking-tight text-slate-900">
-              {t.appName}
-            </span>
-          </Link>
+    <nav className="sticky top-0 z-50 px-4 pt-4">
+      <div className="mx-auto flex max-w-4xl items-center justify-between rounded-[24px] border border-[color:var(--line)] bg-[color:var(--surface)] px-4 py-3 shadow-[0_12px_28px_rgba(49,32,18,0.08)] backdrop-blur">
+        <Link to={ROUTE_CONSTANTS.TODAY} className="text-sm font-semibold text-[color:var(--text)]">
+          {t.appName}
+        </Link>
 
-          {/* Nav Links + Lang Toggle */}
-          <div className="flex items-center gap-1 bg-white/75 backdrop-blur-sm rounded-2xl p-1.5 shadow-[0_4px_18px_rgba(0,0,0,0.04)]">
-            {NAV_ITEMS.map((item) => {
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-[#007AFF]/10 text-[#007AFF]'
-                      : 'text-slate-500 hover:bg-slate-100/80'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-
-            {/* Language Toggle */}
-            <button
-              onClick={toggleLang}
-              className="ml-1 px-2.5 py-1.5 text-xs font-semibold rounded-xl text-slate-500 hover:bg-slate-100/80 transition-colors"
-              title={lang === 'en' ? 'Switch to Chinese' : '切换到英文'}
+        <div className="flex items-center gap-1">
+          {navItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`rounded-full px-3 py-2 text-sm transition-all ${
+                isActive(item.path)
+                  ? 'bg-[color:var(--accent-soft)] font-medium text-[color:var(--accent)]'
+                  : 'text-[color:var(--muted)] hover:bg-white/60 hover:text-[color:var(--text)]'
+              }`}
             >
-              {lang === 'en' ? '中文' : 'EN'}
-            </button>
-          </div>
+              {item.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Link
+            to={ROUTE_CONSTANTS.SETTINGS}
+            className="rounded-full px-3 py-2 text-sm text-[color:var(--muted)] transition-all hover:bg-white/60 hover:text-[color:var(--text)]"
+          >
+            {t.navSettings}
+          </Link>
+          <button onClick={toggleLang} className="btn-ghost !px-3 !py-2">
+            {lang === 'en' ? '中文' : 'EN'}
+          </button>
         </div>
       </div>
     </nav>

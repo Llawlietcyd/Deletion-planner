@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getHistory } from '../http/api';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -6,35 +6,63 @@ function HistoryPanel({ hideHeader = false }) {
   const { t } = useLanguage();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 50;
 
-  const ACTION_STYLE = {
-    created:   { bg: 'bg-slate-100', text: 'text-slate-600', label: t.actionCreated },
-    planned:   { bg: 'bg-blue-100',  text: 'text-blue-600',  label: t.actionPlanned },
-    completed: { bg: 'bg-green-100', text: 'text-green-600', label: t.actionCompleted },
-    missed:    { bg: 'bg-slate-100', text: 'text-slate-500', label: t.actionMissed },
-    deferred:  { bg: 'bg-amber-100', text: 'text-amber-600', label: t.actionDeferred },
-    deleted:   { bg: 'bg-red-100',   text: 'text-red-600',   label: t.actionDeleted },
+  const actionStyle = {
+    created: 'bg-slate-100 text-slate-700',
+    planned: 'bg-sky-100 text-sky-700',
+    completed: 'bg-emerald-100 text-emerald-700',
+    missed: 'bg-slate-200 text-slate-700',
+    deferred: 'bg-amber-100 text-amber-700',
+    deleted: 'bg-red-100 text-red-700',
   };
 
   useEffect(() => {
-    loadHistory();
+    let mounted = true;
+    async function loadInitial() {
+      setLoading(true);
+      try {
+        const data = await getHistory(null, pageSize, 0);
+        if (mounted) {
+          setHistory(data || []);
+          setHasMore((data || []).length >= pageSize);
+        }
+      } catch (err) {
+        console.error(err);
+        if (mounted) {
+          setHistory([]);
+          setHasMore(false);
+        }
+      }
+      if (mounted) {
+        setLoading(false);
+      }
+    }
+
+    loadInitial();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const loadHistory = async () => {
-    setLoading(true);
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
     try {
-      const data = await getHistory();
-      setHistory(data);
+      const data = await getHistory(null, pageSize, history.length);
+      setHistory((current) => [...current, ...(data || [])]);
+      setHasMore((data || []).length >= pageSize);
     } catch (err) {
       console.error(err);
     }
-    setLoading(false);
+    setLoadingMore(false);
   };
 
   if (loading) {
     return (
-      <div className="card text-center py-10">
-        <p className="text-slate-400">{t.loadingHistory}</p>
+      <div className="card text-center">
+        <p className="text-sm text-[color:var(--muted)]">{t.loadingHistory}</p>
       </div>
     );
   }
@@ -42,58 +70,75 @@ function HistoryPanel({ hideHeader = false }) {
   if (history.length === 0) {
     return (
       <div className="space-y-4">
-        {!hideHeader && (
-          <h1 className="text-2xl font-bold text-slate-800">{t.historyTitle}</h1>
-        )}
-        <div className="card text-center py-10">
-          <p className="text-4xl mb-3">📜</p>
-          <p className="text-slate-500">{t.noHistory}</p>
-          <p className="text-slate-400 text-sm mt-1">{t.noHistorySub}</p>
+        {!hideHeader && <h1 className="text-3xl text-[color:var(--text)]">{t.historyTitle}</h1>}
+        <div className="card text-center">
+          <p className="text-lg text-[color:var(--text)]">{t.noHistory}</p>
+          <p className="mt-2 text-sm text-[color:var(--muted)]">{t.noHistorySub}</p>
         </div>
       </div>
     );
   }
 
-  // Group by date
-  const grouped = {};
-  history.forEach((h) => {
-    if (!grouped[h.date]) grouped[h.date] = [];
-    grouped[h.date].push(h);
-  });
+  const grouped = history.reduce((accumulator, entry) => {
+    if (!accumulator[entry.date]) {
+      accumulator[entry.date] = [];
+    }
+    accumulator[entry.date].push(entry);
+    return accumulator;
+  }, {});
 
   return (
     <div className="space-y-6">
-      {!hideHeader && (
-        <h1 className="text-2xl font-bold text-slate-800">{t.historyTitle}</h1>
-      )}
+      {!hideHeader && <h1 className="text-3xl text-[color:var(--text)]">{t.historyTitle}</h1>}
 
       {Object.entries(grouped)
-        .sort(([a], [b]) => b.localeCompare(a))
+        .sort(([left], [right]) => right.localeCompare(left))
         .map(([date, entries]) => (
-          <div key={date}>
-            <h3 className="text-sm font-semibold text-slate-500 mb-2">{date}</h3>
-            <div className="space-y-1">
-              {entries.map((entry) => {
-                const style = ACTION_STYLE[entry.action] || ACTION_STYLE.created;
-                return (
-                  <div key={entry.id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-50">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${style.bg} ${style.text} w-20 text-center`}>
-                      {style.label}
+          <section key={date} className="card">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">{date}</p>
+            <div className="mt-4 space-y-3">
+              {entries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex flex-col gap-2 rounded-[22px] border border-[color:var(--line)] bg-white/70 px-4 py-3 md:flex-row md:items-center md:justify-between"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        actionStyle[entry.action] || actionStyle.created
+                      }`}
+                    >
+                      {t[`action${entry.action.charAt(0).toUpperCase()}${entry.action.slice(1)}`] || entry.action}
                     </span>
-                    <span className="text-sm text-slate-700 flex-1">
-                      {t.taskLabel(entry.task_id)}
-                    </span>
-                    {entry.ai_reasoning && (
-                      <span className="text-xs text-slate-400 max-w-xs truncate">
-                        {entry.ai_reasoning}
-                      </span>
-                    )}
+                    <p className="truncate text-sm text-[color:var(--text)]">
+                      {entry.task_title || t.taskLabel(entry.task_id, entry.task_title)}
+                    </p>
                   </div>
-                );
-              })}
+
+                  {entry.ai_reasoning && (
+                    <p className="text-sm text-[color:var(--muted)] md:max-w-md md:text-right">
+                      {entry.ai_reasoning}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
-          </div>
+          </section>
         ))}
+
+      {hasMore && (
+        <div className="text-center">
+          <button onClick={handleLoadMore} disabled={loadingMore} className="btn-ghost">
+            {loadingMore ? '...' : t.loadMore}
+          </button>
+        </div>
+      )}
+
+      {!hasMore && history.length > pageSize && (
+        <p className="text-center text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+          {t.noMoreHistory}
+        </p>
+      )}
     </div>
   );
 }

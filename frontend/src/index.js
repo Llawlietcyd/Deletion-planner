@@ -11,4 +11,13 @@ root.render(
   </React.StrictMode>
 );
 
+// Disable the service worker in development so UI changes are not masked by cached assets.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => registration.unregister());
+    }).catch(() => {});
+  });
+}
+
 reportWebVitals();

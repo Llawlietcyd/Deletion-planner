@@ -1,6 +1,6 @@
 {
-  "short_name": "AI Academy",
-  "name": "AI Academy - Learn Artificial Intelligence",
+  "short_name": "删·计划",
+  "name": "Deletion-First Daily Planner",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,6 +10,9 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "orientation": "portrait-primary",
+  "theme_color": "#007AFF",
+  "background_color": "#f8fafc",
+  "categories": ["productivity"],
+  "description": "AI-powered task planning assistant that helps you focus by suggesting what to delete."
 }

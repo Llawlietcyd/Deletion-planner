@@ -1,44 +1,49 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  deleteTask,
   generatePlan,
+  getTasks,
   getTodayPlan,
   submitFeedback,
-  getTasks,
   updateTask,
-  deleteTask,
 } from '../http/api';
 import { useLanguage } from '../i18n/LanguageContext';
-import DeletionSuggestion from './DeletionSuggestion';
+import FocusTimer from './FocusTimer';
 
-function DailyPlan({ refreshSignal = 0, minimal = false }) {
+function DailyPlan({ refreshSignal = 0 }) {
   const { lang, t } = useLanguage();
   const [plan, setPlan] = useState(null);
+  const [activeTasks, setActiveTasks] = useState([]);
   const [deletionSuggestions, setDeletionSuggestions] = useState([]);
+  const [capacityUnits, setCapacityUnits] = useState(() => {
+    const cached = window.localStorage.getItem('planning_capacity_units');
+    const parsed = Number(cached);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 6;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [feedbackMode, setFeedbackMode] = useState(false);
   const [taskStatuses, setTaskStatuses] = useState({});
-  const [activeTasks, setActiveTasks] = useState([]);
-  const [showInsights, setShowInsights] = useState(false);
+  const [showDeferred, setShowDeferred] = useState(false);
+  const [showReasoning, setShowReasoning] = useState(false);
+  const [nextPreview, setNextPreview] = useState(null);
+  const [selectedFocusTaskId, setSelectedFocusTaskId] = useState(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }, []);
 
-  // Reload plan whenever language changes
-  const loadTodayPlan = useCallback(async () => {
+  const loadPlan = useCallback(async () => {
     try {
-      const data = await getTodayPlan(lang);
+      const data = await getTodayPlan(lang, capacityUnits);
       setPlan(data);
-      if (data.deletion_suggestions?.length > 0) {
-        setDeletionSuggestions(data.deletion_suggestions);
-      }
+      setDeletionSuggestions(data.deletion_suggestions || []);
     } catch {
       setPlan(null);
+      setDeletionSuggestions([]);
     }
-  }, [lang]);
-
-  useEffect(() => {
-    loadTodayPlan();
-  }, [loadTodayPlan, refreshSignal]);
+  }, [lang, capacityUnits]);
 
   const loadActiveTasks = useCallback(async () => {
     try {
@@ -50,49 +55,26 @@ function DailyPlan({ refreshSignal = 0, minimal = false }) {
   }, []);
 
   useEffect(() => {
+    loadPlan();
+  }, [loadPlan, refreshSignal]);
+
+  useEffect(() => {
     loadActiveTasks();
   }, [loadActiveTasks, refreshSignal]);
 
-  const handleGenerate = async () => {
+  useEffect(() => {
+    window.localStorage.setItem('planning_capacity_units', String(capacityUnits));
+  }, [capacityUnits]);
+
+  const handleGenerate = async (force = false) => {
     setLoading(true);
     setError('');
+    setNextPreview(null);
     try {
-      const data = await generatePlan(null, lang);
+      const data = await generatePlan(null, lang, capacityUnits, force);
       setPlan(data);
-      if (data.deletion_suggestions) {
-        setDeletionSuggestions(data.deletion_suggestions);
-      }
-    } catch (err) {
-      setError(err.message);
-    }
-    setLoading(false);
-  };
-
-  const handleStatusChange = (planTaskId, status) => {
-    setTaskStatuses((prev) => ({ ...prev, [planTaskId]: status }));
-  };
-
-  const handleSubmitFeedback = async () => {
-    const results = Object.entries(taskStatuses).map(([planTaskId, status]) => ({
-      plan_task_id: parseInt(planTaskId),
-      status,
-    }));
-
-    if (results.length === 0) {
-      setError(t.markAtLeastOne);
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    try {
-      const data = await submitFeedback(today, results, lang);
-      if (data.deletion_suggestions?.length > 0) {
-        setDeletionSuggestions(data.deletion_suggestions);
-      }
-      setFeedbackMode(false);
-      loadTodayPlan();
-      loadActiveTasks();
+      setDeletionSuggestions(data.deletion_suggestions || []);
+      await loadActiveTasks();
     } catch (err) {
       setError(err.message);
     }
@@ -110,196 +92,316 @@ function DailyPlan({ refreshSignal = 0, minimal = false }) {
       } else if (action === 'delete') {
         await deleteTask(taskId);
       }
-      await loadActiveTasks();
-      await loadTodayPlan();
+      await Promise.all([loadPlan(), loadActiveTasks()]);
     } catch (err) {
       setError(err.message);
     }
     setLoading(false);
   };
 
-  const STATUS_OPTIONS = [
-    { value: 'completed', label: t.btnDone, color: 'bg-green-500' },
-    { value: 'missed', label: t.btnMissed, color: 'bg-slate-400' },
-    { value: 'deferred', label: t.btnDefer, color: 'bg-amber-500' },
-  ];
-
-  const STATUS_LABEL = {
-    completed: t.actionCompleted,
-    deferred: t.actionDeferred,
-    missed: t.actionMissed,
-    planned: t.planned,
+  const handleStatusChange = (planTaskId, status) => {
+    setTaskStatuses((current) => ({ ...current, [planTaskId]: status }));
   };
 
+  const handleSubmitFeedback = async () => {
+    const results = Object.entries(taskStatuses).map(([planTaskId, status]) => ({
+      plan_task_id: Number(planTaskId),
+      status,
+    }));
+
+    if (results.length === 0) {
+      setError(t.markAtLeastOne);
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const data = await submitFeedback(today, results, lang, capacityUnits);
+      setNextPreview(data.next_day_preview || null);
+      setDeletionSuggestions(data.deletion_suggestions || []);
+      setFeedbackMode(false);
+      setTaskStatuses({});
+      await Promise.all([loadPlan(), loadActiveTasks()]);
+    } catch (err) {
+      setError(err.message);
+    }
+    setLoading(false);
+  };
+
+  const planTasks = plan?.tasks || [];
+  const deferredTasks = plan?.deferred_tasks || [];
+  const decisionSummary = plan?.decision_summary;
+  const deletionCandidate = deletionSuggestions[0];
+  const focusTasks = planTasks.map((planTask) => planTask.task).filter(Boolean);
+
   return (
-    <div className="space-y-6">
-      {!minimal && (
-        <div className="flex gap-2">
-          <h1 className="text-2xl font-bold text-slate-800">{t.dailyPlanTitle}</h1>
-          <p className="text-slate-500 text-sm">{today}</p>
+    <div className="space-y-4">
+      {error && (
+        <div className="rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
         </div>
       )}
 
-      {error && (
-        <div className="text-sm text-red-600 bg-red-50/80 p-3 rounded-2xl">{error}</div>
-      )}
-
-      <div className="card">
-        <div className="flex items-center justify-between mb-3">
+      <section className="card">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-lg font-medium text-slate-900">{t.todayFocusTitle}</h2>
-            <p className="text-xs text-slate-500 mt-1">{t.todayFocusSubtitle}</p>
+            <p className="text-sm font-medium text-[color:var(--text)]">
+              {plan && decisionSummary
+                ? `${decisionSummary.keep_count} keep / ${decisionSummary.defer_count} defer / ${decisionSummary.delete_count} delete`
+                : `${activeTasks.length} active task${activeTasks.length === 1 ? '' : 's'}`}
+            </p>
+            <p className="mt-1 text-sm text-[color:var(--muted)]">
+              {plan && decisionSummary ? decisionSummary.headline : t.noPlanSub}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            {!plan && (
-              <button onClick={handleGenerate} disabled={loading} className="btn-primary">
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 rounded-full bg-white/70 px-3 py-2 text-sm text-[color:var(--muted)]">
+              {t.capacityLabel}
+              <input
+                type="number"
+                min="1"
+                max="24"
+                value={capacityUnits}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  if (!Number.isFinite(next)) {
+                    return;
+                  }
+                  setCapacityUnits(Math.max(1, Math.min(24, next)));
+                }}
+                className="w-12 bg-transparent text-right text-[color:var(--text)] outline-none"
+              />
+            </label>
+            {!plan ? (
+              <button onClick={() => handleGenerate(false)} disabled={loading} className="btn-primary">
                 {loading ? t.generating : t.generatePlan}
               </button>
-            )}
-            {plan && !feedbackMode && !minimal && (
-              <button onClick={() => setFeedbackMode(true)} className="btn-ghost">
-                {t.giveFeedback}
-              </button>
+            ) : (
+              <>
+                <button onClick={() => handleGenerate(true)} disabled={loading} className="btn-primary">
+                  {loading ? t.regenerating : t.regeneratePlan}
+                </button>
+                <button onClick={() => setFeedbackMode((value) => !value)} className="btn-ghost">
+                  {t.giveFeedback}
+                </button>
+              </>
             )}
           </div>
         </div>
-        {activeTasks.length === 0 ? (
-          <p className="text-sm text-slate-500">{t.todayNoFocus}</p>
+      </section>
+
+      <FocusTimer
+        tasks={focusTasks}
+        selectedTaskId={selectedFocusTaskId}
+        onSelectedTaskChange={setSelectedFocusTaskId}
+      />
+
+      <section className="card">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl text-[color:var(--text)]">{t.keepTodayTitle}</h2>
+            <p className="mt-1 text-sm text-[color:var(--muted)]">{t.keepTodaySubtitle}</p>
+          </div>
+        </div>
+
+        {!plan ? (
+          <div className="rounded-[20px] border border-dashed border-[color:var(--line)] px-4 py-10 text-center">
+            <p className="text-sm text-[color:var(--muted)]">{t.noPlan}</p>
+          </div>
         ) : (
           <div className="space-y-3">
-            {activeTasks.slice(0, 5).map((task) => (
-              <div key={task.id} className="rounded-2xl bg-white p-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[16px] font-medium text-slate-800 truncate">{task.title}</p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleQuickAction(task.id, 'complete')}
-                      className="text-xs px-3 py-1.5 rounded-full bg-[#007AFF]/10 text-[#007AFF] hover:bg-[#007AFF]/15"
-                    >
-                      {t.btnDone}
-                    </button>
-                    <button
-                      onClick={() => handleQuickAction(task.id, 'delete')}
-                      className="text-xs px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    >
-                      {t.deleteBtn}
-                    </button>
+            {planTasks.map((planTask) => (
+              <div key={planTask.id} className="rounded-[20px] border border-[color:var(--line)] bg-white/70 px-4 py-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-medium text-[color:var(--text)]">
+                      {planTask.task?.title || t.unknownTask}
+                    </p>
+                    {planTask.task?.description && (
+                      <p className="mt-1 text-sm text-[color:var(--muted)]">{planTask.task.description}</p>
+                    )}
                   </div>
+
+                  {!feedbackMode ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setSelectedFocusTaskId(planTask.task_id)}
+                        className="rounded-full bg-white px-3 py-1.5 text-sm font-medium text-[color:var(--text)]"
+                      >
+                        {t.focusAction}
+                      </button>
+                      <button
+                        onClick={() => handleQuickAction(planTask.task_id, 'complete')}
+                        className="rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-700"
+                      >
+                        {t.btnDone}
+                      </button>
+                      <button
+                        onClick={() => handleQuickAction(planTask.task_id, 'defer')}
+                        className="rounded-full bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-700"
+                      >
+                        {t.btnDefer}
+                      </button>
+                      <button
+                        onClick={() => handleQuickAction(planTask.task_id, 'delete')}
+                        className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700"
+                      >
+                        {t.deleteBtn}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { value: 'completed', label: t.btnDone },
+                        { value: 'missed', label: t.btnMissed },
+                        { value: 'deferred', label: t.btnDefer },
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => handleStatusChange(planTask.id, option.value)}
+                          className={`rounded-full px-3 py-1.5 text-sm ${
+                            taskStatuses[planTask.id] === option.value
+                              ? 'bg-[color:var(--accent)] text-white'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
+
+            {feedbackMode && (
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleSubmitFeedback}
+                  disabled={loading || Object.keys(taskStatuses).length === 0}
+                  className="btn-primary disabled:opacity-50"
+                >
+                  {loading ? t.submitting : t.submitFeedback}
+                </button>
+                <button
+                  onClick={() => {
+                    setFeedbackMode(false);
+                    setTaskStatuses({});
+                  }}
+                  className="btn-ghost"
+                >
+                  {t.cancel}
+                </button>
+              </div>
+            )}
           </div>
         )}
-      </div>
+      </section>
 
-      {!minimal && plan?.tasks && plan.tasks.length > 0 ? (
-        <div className="space-y-2">
-          {plan.tasks.map((pt) => (
-            <div key={pt.id} className="card !p-4 flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      pt.status === 'completed' ? 'bg-green-500' :
-                      pt.status === 'deferred' ? 'bg-amber-500' :
-                      pt.status === 'missed' ? 'bg-slate-400' :
-                      'bg-blue-500'
-                    }`}
-                  />
-                  <span className="font-medium text-slate-800">
-                    {pt.task?.title || t.unknownTask}
-                  </span>
-                  {pt.status !== 'planned' && (
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      pt.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      pt.status === 'deferred' ? 'bg-amber-100 text-amber-700' :
-                      'bg-slate-100 text-slate-600'
-                    }`}>
-                      {STATUS_LABEL[pt.status] || pt.status}
-                    </span>
-                  )}
+      {plan && (
+        <section className="card py-4">
+          <button
+            onClick={() => setShowDeferred((value) => !value)}
+            className="flex w-full items-center justify-between text-left"
+          >
+            <div>
+              <h3 className="text-lg text-[color:var(--text)]">{t.deferTitle}</h3>
+              <p className="mt-1 text-sm text-[color:var(--muted)]">
+                {deferredTasks.length > 0
+                  ? `${deferredTasks.length} task${deferredTasks.length === 1 ? '' : 's'}`
+                  : t.noDeferredTasks}
+              </p>
+            </div>
+            <span className="text-sm text-[color:var(--muted)]">{showDeferred ? 'Hide' : 'Show'}</span>
+          </button>
+
+          {showDeferred && deferredTasks.length > 0 && (
+            <div className="mt-4 space-y-2 border-t border-[color:var(--line)] pt-4">
+              {deferredTasks.map((task) => (
+                <div key={task.id} className="rounded-[18px] bg-white/60 px-4 py-3">
+                  <p className="text-sm font-medium text-[color:var(--text)]">{task.title}</p>
                 </div>
-                {pt.task?.description && (
-                  <p className="text-sm text-slate-500 ml-4 mt-1">{pt.task.description}</p>
-                )}
-              </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
-              {feedbackMode && pt.status === 'planned' && (
-                <div className="flex gap-1">
-                  {STATUS_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => handleStatusChange(pt.id, opt.value)}
-                      className={`px-2 py-1 text-xs rounded-md font-medium transition-all ${
-                        taskStatuses[pt.id] === opt.value
-                          ? `${opt.color} text-white`
-                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
+      {plan && deletionCandidate && (
+        <section className="card py-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[color:var(--text)]">{deletionCandidate.title}</p>
+              <p className="mt-1 text-sm text-[color:var(--muted)]">{deletionCandidate.deletion_reasoning}</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleQuickAction(deletionCandidate.id, 'delete')}
+                className="rounded-full bg-red-600 px-3 py-1.5 text-sm font-medium text-white"
+              >
+                {t.deleteBtn}
+              </button>
+              <button
+                onClick={() => setDeletionSuggestions((current) => current.slice(1))}
+                className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700"
+              >
+                {t.keepBtn}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {plan && (
+        <section className="card py-4">
+          <button
+            onClick={() => setShowReasoning((value) => !value)}
+            className="flex w-full items-center justify-between text-left"
+          >
+            <div>
+              <h3 className="text-lg text-[color:var(--text)]">{t.whyThisPlanTitle}</h3>
+              <p className="mt-1 text-sm text-[color:var(--muted)]">
+                {decisionSummary?.next_step || t.aiReasoning}
+              </p>
+            </div>
+            <span className="text-sm text-[color:var(--muted)]">{showReasoning ? 'Hide' : 'Show'}</span>
+          </button>
+
+          {showReasoning && (
+            <div className="mt-4 border-t border-[color:var(--line)] pt-4">
+              <p className="text-sm leading-7 text-[color:var(--text)]">{plan.reasoning}</p>
+              {plan.coach_notes?.length > 0 && (
+                <div className="mt-3 space-y-1 text-sm text-[color:var(--muted)]">
+                  {plan.coach_notes.map((note) => (
+                    <p key={note}>{note}</p>
                   ))}
                 </div>
               )}
             </div>
-          ))}
-        </div>
-      ) : !plan ? (
-        <div className="card text-center py-10">
-          <p className="text-4xl mb-3">📋</p>
-          <p className="text-slate-500">{t.noPlan}</p>
-          <p className="text-slate-400 text-sm mt-1">{t.noPlanSub}</p>
-        </div>
-      ) : null}
-
-      {!minimal && feedbackMode && (
-        <div className="flex gap-2">
-          <button
-            onClick={handleSubmitFeedback}
-            disabled={loading || Object.keys(taskStatuses).length === 0}
-            className="btn-primary flex-1 disabled:opacity-50"
-          >
-            {loading ? t.submitting : t.submitFeedback}
-          </button>
-          <button
-            onClick={() => { setFeedbackMode(false); setTaskStatuses({}); }}
-            className="btn-ghost"
-          >
-            {t.cancel}
-          </button>
-        </div>
+          )}
+        </section>
       )}
 
-      {(plan?.reasoning || plan?.overload_warning || deletionSuggestions.length > 0) && (
-        <div className="card">
-          <button
-            onClick={() => setShowInsights((v) => !v)}
-            className="w-full text-left text-sm text-slate-500 hover:text-slate-700 transition-colors"
-          >
-            {showInsights ? t.todayHideInsights : t.todayShowInsights}
-          </button>
-          {showInsights && (
-            <div className="mt-3 space-y-3">
-              {plan?.reasoning && (
-                <p className="text-sm text-slate-600 leading-relaxed">{plan.reasoning}</p>
-              )}
-              {plan?.overload_warning && (
-                <p className="text-sm text-amber-700">{plan.overload_warning}</p>
-              )}
-              {deletionSuggestions.length > 0 && (
-                <DeletionSuggestion
-                  suggestions={deletionSuggestions}
-                  onSuggestionDeleted={(taskId) => {
-                    setDeletionSuggestions((prev) => prev.filter((s) => s.id !== taskId));
-                  }}
-                  onDismiss={() => setDeletionSuggestions([])}
-                />
-              )}
+      {nextPreview && (
+        <section className="card py-4">
+          <h3 className="text-lg text-[color:var(--text)]">{t.nextPreviewTitle}</h3>
+          <p className="mt-1 text-sm text-[color:var(--muted)]">{nextPreview.adaptive_reason}</p>
+          {nextPreview.preview_tasks?.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {nextPreview.preview_tasks.slice(0, 3).map((item) => (
+                <span
+                  key={item.id}
+                  className="rounded-full bg-white/70 px-3 py-1.5 text-sm text-[color:var(--text)]"
+                >
+                  {item.task?.title}
+                </span>
+              ))}
             </div>
           )}
-        </div>
+        </section>
       )}
-
     </div>
   );
 }

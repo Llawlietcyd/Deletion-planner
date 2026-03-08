@@ -10,19 +10,16 @@ import { ROUTE_CONSTANTS } from './constants/RouteConstants';
 
 function Dashboard() {
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen transition-colors">
       <MainNavbar />
-      <main className="max-w-3xl mx-auto px-4 py-8">
+      <main className="mx-auto max-w-4xl px-4 pb-10 pt-6">
         <Routes>
-          <Route path={ROUTE_CONSTANTS.HOME} element={<InboxPage />} />
+          <Route path={ROUTE_CONSTANTS.HOME} element={<TodayPage />} />
           <Route path={ROUTE_CONSTANTS.INBOX} element={<InboxPage />} />
           <Route path={ROUTE_CONSTANTS.TODAY} element={<TodayPage />} />
           <Route path={ROUTE_CONSTANTS.REVIEW} element={<ReviewPage />} />
           <Route path={ROUTE_CONSTANTS.INSIGHTS} element={<InsightsPage />} />
           <Route path={ROUTE_CONSTANTS.SETTINGS} element={<SettingsPage />} />
-          <Route path={ROUTE_CONSTANTS.PLAN} element={<TodayPage />} />
-          <Route path={ROUTE_CONSTANTS.HISTORY} element={<ReviewPage />} />
-          <Route path={ROUTE_CONSTANTS.STATS} element={<InsightsPage />} />
         </Routes>
       </main>
     </div>

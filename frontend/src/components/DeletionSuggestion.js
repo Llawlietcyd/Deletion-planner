@@ -11,7 +11,7 @@ function DeletionSuggestion({ suggestions, onDismiss, onSuggestionDeleted }) {
       if (onSuggestionDeleted) {
         onSuggestionDeleted(taskId);
       }
-      if (suggestions.length <= 1) {
+      if (suggestions.length <= 1 && onDismiss) {
         onDismiss();
       }
     } catch (err) {
@@ -19,48 +19,76 @@ function DeletionSuggestion({ suggestions, onDismiss, onSuggestionDeleted }) {
     }
   };
 
-  if (!suggestions || suggestions.length === 0) return null;
+  if (!suggestions || suggestions.length === 0) {
+    return null;
+  }
 
   return (
-    <div className="card !bg-red-50 !border-red-200">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-lg">🗑️</span>
-        <h3 className="font-semibold text-red-800">{t.deletionTitle}</h3>
+    <section className="card border-red-200 bg-red-50/80">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-500">
+            {t.deleteNowTitle}
+          </p>
+          <h3 className="mt-1 text-2xl text-red-900">{t.deletionTitle}</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-red-800">
+            {t.deletionIntro} {t.deletionPhilosophy}
+          </p>
+        </div>
       </div>
-      <p className="text-sm text-red-700 mb-4">
-        {t.deletionIntro}
-        <span className="font-medium">{t.deletionPhilosophy}</span>
-      </p>
 
-      <div className="space-y-3">
-        {suggestions.map((s) => (
-          <div key={s.id} className="bg-white rounded-lg p-3 border border-red-200">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <p className="font-medium text-slate-800">{s.title}</p>
-                <p className="text-sm text-slate-600 mt-1">
-                  {s.deletion_reasoning}
+      <div className="mt-5 space-y-3">
+        {suggestions.map((suggestion) => (
+          <div
+            key={suggestion.id}
+            className="rounded-[24px] border border-red-200 bg-white/90 p-4 shadow-[0_12px_24px_rgba(176,59,47,0.08)]"
+          >
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-base font-semibold text-[color:var(--text)]">{suggestion.title}</p>
+                  {suggestion.due_date && (
+                    <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600">
+                      {suggestion.due_date}
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+                  {suggestion.deletion_reasoning}
                 </p>
-                {s.trigger_reasons && (
-                  <div className="flex gap-2 mt-2 flex-wrap">
-                    {s.trigger_reasons.map((r, i) => (
-                      <span key={i} className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
-                        {r}
+
+                {suggestion.trigger_reasons?.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {suggestion.trigger_reasons.map((reason) => (
+                      <span
+                        key={reason}
+                        className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-600"
+                      >
+                        {reason}
                       </span>
                     ))}
                   </div>
                 )}
               </div>
-              <div className="flex gap-1 flex-shrink-0">
+
+              <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => handleAcceptDeletion(s.id)}
-                  className="text-xs px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 font-medium"
+                  onClick={() => handleAcceptDeletion(suggestion.id)}
+                  className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-red-700"
                 >
                   {t.deleteBtn}
                 </button>
                 <button
-                  onClick={onDismiss}
-                  className="text-xs px-3 py-1.5 bg-slate-200 text-slate-600 rounded-md hover:bg-slate-300 font-medium"
+                  onClick={() => {
+                    if (onSuggestionDeleted) {
+                      onSuggestionDeleted(suggestion.id);
+                    }
+                    if (suggestions.length <= 1 && onDismiss) {
+                      onDismiss();
+                    }
+                  }}
+                  className="btn-ghost"
                 >
                   {t.keepBtn}
                 </button>
@@ -69,7 +97,7 @@ function DeletionSuggestion({ suggestions, onDismiss, onSuggestionDeleted }) {
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 

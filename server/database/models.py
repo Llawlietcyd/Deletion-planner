@@ -1,7 +1,7 @@
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, ForeignKey, Index
 )
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime, timezone
 import enum
 import os
@@ -58,6 +58,7 @@ class Task(Base):
     decision_reason = Column(Text, default="")
     completed_at = Column(DateTime, nullable=True)
     deleted_at = Column(DateTime, nullable=True)
+    due_date = Column(String(10), nullable=True)  # YYYY-MM-DD
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
@@ -81,6 +82,7 @@ class Task(Base):
             "decision_reason": self.decision_reason,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
+            "due_date": self.due_date,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -160,8 +162,19 @@ class TaskHistory(Base):
         return {
             "id": self.id,
             "task_id": self.task_id,
+            "task_title": self.task.title if self.task else None,
             "date": self.date,
             "action": self.action,
             "ai_reasoning": self.ai_reasoning,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class AppSetting(Base):
+    """Key-value store for application settings (e.g. LLM config)."""
+    __tablename__ = "app_settings"
+
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, default="")
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))

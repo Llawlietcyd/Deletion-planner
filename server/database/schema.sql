@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     category VARCHAR(30) DEFAULT 'unclassified',
     status VARCHAR(20) DEFAULT 'active',
     priority INTEGER DEFAULT 0,
+    sort_order INTEGER DEFAULT 0,
     deferral_count INTEGER DEFAULT 0,
     completion_count INTEGER DEFAULT 0,
     source VARCHAR(20) DEFAULT 'manual',
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_sort_order ON tasks(sort_order);
 
 CREATE TABLE IF NOT EXISTS daily_plans (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

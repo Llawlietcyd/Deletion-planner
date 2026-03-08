@@ -1,46 +1,177 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #f4efe6;
+  --bg-strong: #ede3d2;
+  --surface: rgba(255, 250, 242, 0.88);
+  --surface-strong: #fffaf2;
+  --text: #1f1a17;
+  --muted: #6a625d;
+  --line: rgba(78, 57, 39, 0.12);
+  --accent: #c84d2f;
+  --accent-strong: #a33920;
+  --accent-soft: rgba(200, 77, 47, 0.12);
+  --success: #1f7a4f;
+  --warning: #9a6f10;
+  --danger: #b03b2f;
+}
+
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top right, rgba(200, 77, 47, 0.12), transparent 22rem),
+    radial-gradient(circle at bottom left, rgba(31, 122, 79, 0.09), transparent 20rem),
+    var(--bg);
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f5f5f7;
-  color: #1c1c1e;
+  background: transparent;
+  color: var(--text);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(31, 26, 23, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 26, 23, 0.018) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(circle at center, black 35%, transparent 100%);
+  opacity: 0.35;
+}
+
+.dark html,
+html.dark {
+  --bg: #111417;
+  --bg-strong: #161b20;
+  --surface: rgba(24, 29, 35, 0.9);
+  --surface-strong: #1c2229;
+  --text: #f2eee8;
+  --muted: #b7afa6;
+  --line: rgba(255, 255, 255, 0.1);
+  --accent: #f06c48;
+  --accent-strong: #ff8a67;
+  --accent-soft: rgba(240, 108, 72, 0.14);
+  --success: #58c990;
+  --warning: #e4b340;
+  --danger: #ff7d6d;
+}
+
+.dark body,
+html.dark body {
+  color: var(--text);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: 'IBM Plex Serif', Georgia, serif;
+    letter-spacing: -0.02em;
+  }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-[#007AFF] hover:bg-[#0071eb] text-white font-semibold py-2 px-4 rounded-2xl transition-all duration-200 shadow-[0_3px_10px_rgba(0,122,255,0.22)];
+    @apply inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200;
+    background: var(--accent);
+    color: #fff9f5;
+    box-shadow: 0 14px 28px rgba(200, 77, 47, 0.18);
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-strong);
+    transform: translateY(-1px);
   }
 
   .btn-danger {
-    @apply bg-red-600 hover:bg-red-500 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200 shadow-sm;
+    @apply inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200;
+    background: var(--danger);
+    color: white;
   }
 
   .btn-ghost {
-    @apply text-slate-600 hover:bg-slate-100/70 font-medium py-2 px-4 rounded-2xl transition-all duration-200;
+    @apply inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-medium transition-all duration-200;
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.4);
+  }
+
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--text);
+  }
+
+  .dark .btn-ghost,
+  html.dark .btn-ghost {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .dark .btn-ghost:hover,
+  html.dark .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.08);
   }
 
   .card {
-    @apply bg-white shadow-[0_4px_16px_rgba(0,0,0,0.04)] rounded-2xl p-6;
+    @apply rounded-[28px] p-6 transition-all duration-200;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: 0 18px 40px rgba(49, 32, 18, 0.08);
+    backdrop-filter: blur(12px);
+  }
+
+  .badge-core,
+  .badge-deferrable,
+  .badge-deletion,
+  .badge-completed {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
   }
 
   .badge-core {
-    @apply inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100;
+    background: rgba(31, 122, 79, 0.12);
+    color: var(--success);
   }
 
   .badge-deferrable {
-    @apply inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100;
+    background: rgba(154, 111, 16, 0.12);
+    color: var(--warning);
   }
 
   .badge-deletion {
-    @apply inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-100;
+    background: rgba(176, 59, 47, 0.12);
+    color: var(--danger);
   }
 
   .badge-completed {
-    @apply inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-100;
+    background: rgba(31, 122, 79, 0.12);
+    color: var(--success);
   }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(18px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out;
 }

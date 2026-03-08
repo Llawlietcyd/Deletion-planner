@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
@@ -10,14 +10,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose port
-EXPOSE 5000
+EXPOSE 5001
 
 # Set environment variables
-ENV FLASK_APP=app.py
-ENV FLASK_ENV=production
 ENV LLM_PROVIDER=mock
-ENV APP_MODULE=app:app
-ENV PORT=5000
+ENV PORT=5001
 
-# Run the application
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT} --workers 4 ${APP_MODULE}"]
+# Run the application with uvicorn (FastAPI)
+CMD ["sh", "-c", "uvicorn api_v2.main:app --host 0.0.0.0 --port ${PORT} --workers 4"]

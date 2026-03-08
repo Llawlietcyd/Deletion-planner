@@ -19,6 +19,7 @@ class TaskCreateRequest(BaseModel):
     priority: int = 0
     sort_order: int = 0
     category: TaskCategory = "unclassified"
+    due_date: Optional[str] = None
 
 
 class TaskBatchCreateRequest(BaseModel):
@@ -33,11 +34,14 @@ class TaskUpdateRequest(BaseModel):
     category: Optional[TaskCategory] = None
     status: Optional[TaskStatus] = None
     deferral_count_delta: Optional[int] = None
+    due_date: Optional[str] = None
 
 
 class PlanGenerateRequest(BaseModel):
     date: Optional[str] = None
     lang: str = "en"
+    capacity_units: Optional[int] = Field(default=None, ge=1, le=24)
+    force: bool = False
 
 
 class FeedbackEntry(BaseModel):
@@ -49,3 +53,8 @@ class FeedbackSubmitRequest(BaseModel):
     date: Optional[str] = None
     results: List[FeedbackEntry]
     lang: str = "en"
+    capacity_units: Optional[int] = Field(default=None, ge=1, le=24)
+
+
+class ReorderRequest(BaseModel):
+    ordered_task_ids: List[int] = Field(min_length=1)

@@ -1,57 +1,38 @@
-"""Deletion detection engine — identifies tasks that should be considered for removal."""
+"""Deletion candidate detection built on deterministic rules."""
 
-from typing import List, Dict, Any
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
 from core.llm import get_llm_service
-
-# Thresholds
-DEFERRAL_THRESHOLD = 3       # Suggest deletion after this many deferrals
-LOW_COMPLETION_RATE = 0.3    # Flag tasks with completion rate below 30%
+from core.rules import build_capacity_snapshot
 
 
-def check_deletion_candidates(tasks, lang: str = "en") -> List[Dict[str, Any]]:
-    """Scan active tasks and return deletion suggestions.
-
-    Args:
-        tasks: List of Task ORM objects.
-        lang: Language code ("en" or "zh") for bilingual output.
-
-    Returns:
-        List of dicts with task info + deletion_reasoning.
-    """
+def check_deletion_candidates(
+    tasks,
+    lang: str = "en",
+    capacity_units: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Return deletion suggestions for active tasks."""
+    task_dicts = [task.to_dict() for task in tasks]
+    snapshot = build_capacity_snapshot(task_dicts, capacity_units=capacity_units)
+    candidate_map = {
+        int(item["task_id"]): item for item in snapshot.get("deletion_candidates", [])
+    }
     llm = get_llm_service(lang=lang)
-    suggestions = []
 
-    for task in tasks:
-        should_suggest = False
-        reason_parts = []
-
-        # Rule 1: High deferral count
-        if task.deferral_count >= DEFERRAL_THRESHOLD:
-            should_suggest = True
-            if lang == "zh":
-                reason_parts.append(f"已推迟 {task.deferral_count} 次")
-            else:
-                reason_parts.append(f"Deferred {task.deferral_count} times")
-
-        # Rule 2: Low completion rate (only if planned enough times)
-        total_attempts = task.completion_count + task.deferral_count
-        if total_attempts >= 3:
-            rate = task.completion_count / total_attempts
-            if rate < LOW_COMPLETION_RATE:
-                should_suggest = True
-                if lang == "zh":
-                    reason_parts.append(
-                        f"完成率为 {rate:.0%}（{task.completion_count}/{total_attempts}）"
-                    )
-                else:
-                    reason_parts.append(
-                        f"Completion rate is {rate:.0%} ({task.completion_count}/{total_attempts})"
-                    )
-
-        if should_suggest:
-            t_dict = task.to_dict()
-            t_dict["trigger_reasons"] = reason_parts
-            t_dict["deletion_reasoning"] = llm.generate_deletion_reasoning(t_dict)
-            suggestions.append(t_dict)
+    suggestions: List[Dict[str, Any]] = []
+    for task in task_dicts:
+        task_id = int(task["id"])
+        candidate = candidate_map.get(task_id)
+        if not candidate:
+            continue
+        rule_reasons = list(candidate.get("rule_reasons", []))
+        suggestion = dict(task)
+        suggestion["trigger_reasons"] = rule_reasons
+        suggestion["deletion_reasoning"] = llm.generate_deletion_reasoning(
+            task, rule_reasons
+        )
+        suggestions.append(suggestion)
 
     return suggestions

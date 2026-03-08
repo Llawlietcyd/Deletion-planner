@@ -50,6 +50,8 @@ def _ensure_sqlite_compat_schema():
             conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN deleted_at DATETIME")
         if "sort_order" not in col_names:
             conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0")
+        if "due_date" not in col_names:
+            conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN due_date VARCHAR(10)")
 
         conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
         conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at)")

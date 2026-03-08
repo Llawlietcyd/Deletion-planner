@@ -24,20 +24,8 @@ echo "📦 Building Frontend..."
 cd frontend
 REACT_APP_API_ENDPOINT=https://api.aiacademy.com npm run build
 
-echo "🗜️ Optimizing JavaScript..."
-for file in ./build/static/js/*.js; do 
-    uglifyjs "$file" --compress --mangle -o "$file"
-done
-
 echo "☁️ Deploying Frontend to S3..."
 aws s3 sync build/ s3://$BUCKET_NAME --acl public-read --delete
-
-echo "📚 Building Documentation..."
-cd ../docs
-mkdocs build
-
-echo "☁️ Deploying Documentation..."
-aws s3 sync site/ s3://$BUCKET_NAME/docs --acl public-read
 
 echo "🐳 Building Backend Docker Image..."
 cd ../server
