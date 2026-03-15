@@ -97,6 +97,19 @@ def add_history(db, task: Task, day: date, action: str, reasoning: str, hour: in
     )
 
 
+def add_mood_entries(db, user_id: int, day: date, entries: list[tuple[int, str, int, int]]) -> None:
+    for mood_level, note, hour, minute in entries:
+        db.add(
+            MoodEntry(
+                user_id=user_id,
+                date=day.isoformat(),
+                mood_level=mood_level,
+                note=note,
+                created_at=stamp(day, hour, minute),
+            )
+        )
+
+
 def add_task(
     db,
     *,
@@ -575,35 +588,75 @@ def main() -> None:
         for plan_day, picks in recent_plan_map.items():
             create_plan(db, user.id, plan_day, picks)
 
-        # Mood trail
-        mood_notes = [
-            (30, 3, "A little scattered, but the afternoon got better after a walk."),
-            (27, 4, "Good studio day. Feedback felt sharp instead of discouraging."),
-            (24, 2, "Low energy and stayed inside too long."),
-            (22, 4, "Felt steady after finally clearing inbox tasks."),
-            (19, 5, "Capstone work clicked today."),
-            (16, 3, "Busy Tuesday shift, not much room for anything else."),
-            (14, 4, "Small wins made the week feel lighter."),
-            (12, 2, "Too much context-switching."),
-            (10, 5, "Portfolio fix was quick and satisfying."),
-            (8, 4, "Better sleep made a huge difference."),
-            (6, 3, "Had momentum in the morning, then slowed down."),
-            (4, 4, "Critique was intense but useful."),
-            (2, 3, "Still slightly overloaded."),
-            (1, 4, "Feeling more organized than earlier this month."),
-            (0, 4, "Need a calm finish to the week, but overall things feel under control."),
-        ]
-        for offset, level, note in mood_notes:
-            day = today - timedelta(days=offset)
-            db.add(
-                MoodEntry(
-                    user_id=user.id,
-                    date=day.isoformat(),
-                    mood_level=level,
-                    note=note,
-                    created_at=stamp(day, 22, 15),
-                )
-            )
+        # Mood trail with multiple check-ins on the same day so the account feels
+        # genuinely lived in instead of looking like a once-a-day demo.
+        mood_days = {
+            30: [
+                (2, "Woke up already behind and a little foggy.", 9, 5),
+                (3, "A walk after lunch helped me reset.", 14, 20),
+                (4, "Ended the day steadier than it started.", 22, 10),
+            ],
+            27: [
+                (3, "Slow morning, but not bad.", 8, 40),
+                (4, "Studio feedback felt sharp instead of discouraging.", 16, 45),
+            ],
+            24: [
+                (2, "Low energy and stayed inside too long.", 11, 30),
+                (3, "Cooking helped a bit tonight.", 20, 55),
+            ],
+            22: [
+                (3, "Inbox looked messy at first.", 10, 10),
+                (4, "Felt steady after finally clearing inbox tasks.", 18, 5),
+            ],
+            19: [
+                (4, "Had decent momentum in the morning.", 9, 0),
+                (5, "Capstone work clicked today.", 15, 35),
+                (4, "Tired now, but in a good way.", 23, 0),
+            ],
+            16: [
+                (3, "Busy Tuesday shift, not much room for anything else.", 21, 40),
+            ],
+            14: [
+                (3, "Started neutral.", 9, 15),
+                (4, "Small wins made the week feel lighter.", 19, 10),
+            ],
+            12: [
+                (2, "Too much context-switching.", 13, 5),
+                (3, "A little better after stepping away from the screen.", 17, 40),
+            ],
+            10: [
+                (4, "Good energy from the start.", 10, 0),
+                (5, "Portfolio fix was quick and satisfying.", 21, 0),
+            ],
+            8: [
+                (3, "Still waking up slowly.", 8, 20),
+                (4, "Better sleep made a huge difference.", 12, 50),
+                (4, "Trying not to overfill tomorrow.", 22, 35),
+            ],
+            6: [
+                (4, "Had momentum in the morning.", 10, 40),
+                (3, "Then slowed down once messages piled up.", 18, 15),
+            ],
+            4: [
+                (3, "A little tense before critique.", 11, 10),
+                (4, "Critique was intense but useful.", 17, 55),
+            ],
+            2: [
+                (3, "Still slightly overloaded.", 12, 5),
+                (2, "Energy dipped hard in the afternoon.", 16, 35),
+                (3, "Recovered enough to prep tomorrow.", 22, 25),
+            ],
+            1: [
+                (4, "Feeling more organized than earlier this month.", 21, 45),
+            ],
+            0: [
+                (3, "Started a bit mentally noisy.", 9, 20),
+                (4, "Things felt more under control after lunch.", 14, 45),
+                (4, "Need a calm finish to the week, but overall things feel under control.", 22, 15),
+            ],
+        }
+        for offset, entries in mood_days.items():
+            add_mood_entries(db, user.id, today - timedelta(days=offset), entries)
 
         # Focus trail
         focus_blocks = [

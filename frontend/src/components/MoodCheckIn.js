@@ -73,15 +73,85 @@ function getTimelinePositionPercent(entries, index, minPercent = 0, maxPercent =
   return minPercent + normalized * (maxPercent - minPercent);
 }
 
-function buildWavePoints(entries) {
-  if (!entries.length) {
-    return '';
+function getMoodY(level, range = {}) {
+  const top = range.top ?? 12;
+  const bottom = range.bottom ?? 54;
+  const dynamic = Boolean(range.dynamic);
+  const minLevel = range.minLevel ?? 1;
+  const maxLevel = range.maxLevel ?? 5;
+
+  if (!dynamic) {
+    return bottom - ((level - 1) / 4) * (bottom - top);
   }
+  if (maxLevel <= minLevel) {
+    return (top + bottom) / 2;
+  }
+  const normalized = (level - minLevel) / (maxLevel - minLevel);
+  return bottom - normalized * (bottom - top);
+}
+
+function buildWaveGeometry(entries, options = {}) {
+  if (!entries.length) {
+    return { points: '', dots: [] };
+  }
+  const moodLevels = entries.map((entry) => Number(entry.mood_level || 0)).filter(Boolean);
+  const dynamicRange = {
+    top: options.top ?? 12,
+    bottom: options.bottom ?? 54,
+    dynamic: Boolean(options.dynamicScale),
+    minLevel: Math.min(...moodLevels),
+    maxLevel: Math.max(...moodLevels),
+  };
+  const dots = entries.map((entry, index) => {
+    const x = getTimelinePositionPercent(entries, index, options.minX ?? 8, options.maxX ?? 192);
+    const y = getMoodY(entry.mood_level, dynamicRange);
+    return { x, y, entry, index };
+  });
+  return {
+    points: dots.map(({ x, y }) => `${x},${y}`).join(' '),
+    dots,
+  };
+}
+
+function buildTimelineMarkers(entries, lang) {
+  let lastDate = '';
+  let previousLeft = -Infinity;
+  let currentLane = 0;
+
   return entries.map((entry, index) => {
-    const x = getTimelinePositionPercent(entries, index, 8, 192);
-    const y = 54 - ((entry.mood_level - 1) / 4) * 36;
-    return `${x},${y}`;
-  }).join(' ');
+    const left = getTimelinePositionPercent(entries, index, 2, 98);
+    const dateChanged = entry.date !== lastDate;
+    const timestamp = entry?.created_at ? new Date(entry.created_at) : null;
+    const label = timestamp
+      ? new Intl.DateTimeFormat(lang === 'zh' ? 'zh-CN' : 'en-US', dateChanged ? {
+        timeZone: APP_TIMEZONE,
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+      } : {
+        timeZone: APP_TIMEZONE,
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(timestamp)
+      : (entry?.date || '');
+
+    if (left - previousLeft < 14) {
+      currentLane = (currentLane + 1) % 3;
+    } else {
+      currentLane = 0;
+    }
+
+    lastDate = entry.date;
+    previousLeft = left;
+
+    return {
+      entry,
+      index,
+      left,
+      lane: currentLane,
+      label,
+    };
+  });
 }
 
 function MoodCheckIn({ onMoodLogged, refreshSignal = 0 }) {
@@ -179,24 +249,6 @@ function MoodCheckIn({ onMoodLogged, refreshSignal = 0 }) {
     }
   }, [fallbackDate, selectedDate]);
 
-  const formatTimelineTime = (entry) => {
-    if (!entry?.created_at) {
-      return entry?.date || '';
-    }
-    const timestamp = new Date(entry.created_at);
-    const sameDay = formatDateKeyInTimezone(timestamp) === formatDateKeyInTimezone(new Date());
-    return new Intl.DateTimeFormat(lang === 'zh' ? 'zh-CN' : 'en-US', sameDay ? {
-      timeZone: APP_TIMEZONE,
-      hour: 'numeric',
-      minute: '2-digit',
-    } : {
-      timeZone: APP_TIMEZONE,
-      month: 'numeric',
-      day: 'numeric',
-      hour: 'numeric',
-    }).format(timestamp);
-  };
-
   const formatDayLabel = (dateKey) => new Intl.DateTimeFormat(lang === 'zh' ? 'zh-CN' : 'en-US', {
     timeZone: APP_TIMEZONE,
     month: 'short',
@@ -267,7 +319,14 @@ function MoodCheckIn({ onMoodLogged, refreshSignal = 0 }) {
     : 0;
   const notedEntries = selectedDayEntries.filter((entry) => entry.note && entry.note.trim());
   const latestDayNote = notedEntries[notedEntries.length - 1]?.note?.trim() || '';
-  const dayWavePoints = buildWavePoints(selectedDayEntries);
+  const timelineMarkers = useMemo(() => buildTimelineMarkers(timelineEntries, lang), [lang, timelineEntries]);
+  const dayWave = useMemo(() => buildWaveGeometry(selectedDayEntries, {
+    dynamicScale: true,
+    top: 10,
+    bottom: 74,
+    minX: 10,
+    maxX: 190,
+  }), [selectedDayEntries]);
   const currentMonthDate = parseDateKey(`${calendarMonth}-01`);
   const monthFirstWeekday = currentMonthDate.getUTCDay();
   const monthDays = new Date(Date.UTC(currentMonthDate.getUTCFullYear(), currentMonthDate.getUTCMonth() + 1, 0, 12)).getUTCDate();
@@ -351,15 +410,15 @@ function MoodCheckIn({ onMoodLogged, refreshSignal = 0 }) {
               </div>
               <div className="timeline-track mt-2">
                 <div className="timeline-line" />
-                {timelineEntries.map((entry, index) => (
+                {timelineMarkers.map(({ entry, index, left, lane, label }) => (
                   <div
                     key={`${entry.id}-${entry.created_at || entry.date}`}
                     className={`timeline-node-wrap ${savedMood === entry.mood_level && index === timelineEntries.length - 1 ? 'is-today' : ''}`}
-                    style={{ left: `${getTimelinePositionPercent(timelineEntries, index, 2, 98)}%` }}
+                    style={{ left: `${left}%` }}
                     title={`${entry.date} · ${moodLabels[entry.mood_level - 1]}`}
                   >
                     <div className={`timeline-node level-${entry.mood_level}`} />
-                    <span className="timeline-label">{formatTimelineTime(entry)}</span>
+                    <span className={`timeline-label lane-${lane}`}>{label}</span>
                   </div>
                 ))}
               </div>
@@ -507,13 +566,11 @@ function MoodCheckIn({ onMoodLogged, refreshSignal = 0 }) {
 
                   <div className="mood-wave-shell">
                     {selectedDayEntries.length ? (
-                      <svg viewBox="0 0 200 64" className="mood-wave-svg" preserveAspectRatio="none" aria-hidden="true">
-                        <polyline points={dayWavePoints} className="mood-wave-line" />
-                        {selectedDayEntries.map((entry, index) => {
-                          const x = getTimelinePositionPercent(selectedDayEntries, index, 8, 192);
-                          const y = 54 - ((entry.mood_level - 1) / 4) * 36;
-                          return <circle key={entry.id || `${entry.date}-${index}`} cx={x} cy={y} r="3.5" className={`mood-wave-dot level-${entry.mood_level}`} />;
-                        })}
+                      <svg viewBox="0 0 200 84" className="mood-wave-svg" preserveAspectRatio="none" aria-hidden="true">
+                        <polyline points={dayWave.points} className="mood-wave-line" />
+                        {dayWave.dots.map(({ entry, index, x, y }) => (
+                          <circle key={entry.id || `${entry.date}-${index}`} cx={x} cy={y} r="4.5" className={`mood-wave-dot level-${entry.mood_level}`} />
+                        ))}
                       </svg>
                     ) : (
                       <div className="text-xs text-[color:var(--muted)]">{t.moodDayEmpty}</div>
@@ -606,7 +663,7 @@ function MoodCheckIn({ onMoodLogged, refreshSignal = 0 }) {
         }
         .timeline-track {
           position: relative;
-          height: 34px;
+          height: 70px;
         }
         .timeline-line {
           position: absolute;
@@ -643,10 +700,21 @@ function MoodCheckIn({ onMoodLogged, refreshSignal = 0 }) {
           box-shadow: 0 0 0 4px rgba(255,255,255,0.34);
         }
         .timeline-label {
+          position: absolute;
+          top: 18px;
+          left: 50%;
+          transform: translateX(-50%);
           font-size: 9px;
           line-height: 1;
           color: var(--muted);
           white-space: nowrap;
+          text-align: center;
+        }
+        .timeline-label.lane-1 {
+          top: 30px;
+        }
+        .timeline-label.lane-2 {
+          top: 42px;
         }
         .mood-calendar-panel,
         .mood-day-panel {
@@ -736,11 +804,14 @@ function MoodCheckIn({ onMoodLogged, refreshSignal = 0 }) {
           margin-top: 12px;
           border-radius: 16px;
           background: linear-gradient(180deg, rgba(255,255,255,0.66), rgba(250,243,234,0.8));
-          padding: 10px 12px;
+          padding: 12px 12px;
+          min-height: 108px;
+          display: flex;
+          align-items: center;
         }
         .mood-wave-svg {
           width: 100%;
-          height: 64px;
+          height: 84px;
         }
         .mood-wave-line {
           fill: none;
