@@ -13,7 +13,7 @@ from api_v2.schemas import AssistantChatRequest
 from api_v2.user_context import plan_storage_key, read_setting, require_current_user, write_setting
 from core.llm import get_llm_service
 from core.planner import generate_daily_plan
-from core.task_kind import WEEKDAY_PATTERNS, infer_recurrence_weekday, infer_task_kind, strip_task_kind_markers
+from core.task_kind import WEEKDAY_PATTERNS, infer_recurrence_weekday, infer_relative_due_date, infer_task_kind, strip_task_kind_markers
 from core.time import (
     local_date_offset_iso,
     local_today,
@@ -1509,6 +1509,16 @@ def _coerce_llm_assistant_reply(parsed: Dict[str, Any], message: str) -> Dict[st
     for action in parsed.get("actions", []):
         if action.get("type") == "add_task":
             action["title"] = _normalize_task_title_text(action.get("title", ""))
+            derived_due_date = (
+                normalize_date_string(action.get("due_date"))
+                or infer_relative_due_date(action.get("title", ""), action.get("description") or "")
+                or infer_relative_due_date(message, action.get("description") or "")
+            )
+            if derived_due_date:
+                action["due_date"] = derived_due_date
+                if action.get("task_kind") == "weekly":
+                    action["task_kind"] = "temporary"
+                    action["recurrence_weekday"] = None
             if not action.get("task_kind"):
                 action["task_kind"] = infer_task_kind(
                     message,
@@ -2149,8 +2159,14 @@ def _execute_actions(db, user, actions: List[Dict[str, Any]], lang: str) -> Dict
         action_type = action.get("type", "")
         if action_type == "add_task":
             title = _normalize_task_title_text(action.get("title") or "")
-            normalized_due_date = normalize_date_string(action.get("due_date"))
-            inferred_kind = infer_task_kind(title, action.get("description") or "", action.get("due_date"), action.get("task_kind"))
+            normalized_due_date = (
+                normalize_date_string(action.get("due_date"))
+                or infer_relative_due_date(title, action.get("description") or "")
+            )
+            explicit_kind = action.get("task_kind")
+            if normalized_due_date and explicit_kind == "weekly":
+                explicit_kind = None
+            inferred_kind = infer_task_kind(title, action.get("description") or "", normalized_due_date, explicit_kind)
             inferred_weekday = (
                 infer_recurrence_weekday(
                     title,

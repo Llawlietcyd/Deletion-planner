@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from api_v2.user_context import require_current_user
 from api_v2.schemas import TaskCreateRequest, TaskUpdateRequest, TaskBatchCreateRequest, ReorderRequest
 from core.task_kind import (
+    infer_relative_due_date,
     infer_recurrence_weekday,
     infer_task_kind,
     normalize_recurrence_weekday,
@@ -84,6 +85,7 @@ def list_tasks(request: Request, status: str = Query(default="active"), q: str =
                 if cleaned and cleaned != task.title:
                     task.title = cleaned
                     changed = True
+            inferred_relative_due_date = infer_relative_due_date(task.title, task.description)
             inferred_weekday = infer_recurrence_weekday(task.title, task.description, task.recurrence_weekday)
             inferred_kind = infer_task_kind(task.title, task.description, task.due_date, None)
             if (
@@ -95,9 +97,9 @@ def list_tasks(request: Request, status: str = Query(default="active"), q: str =
                 and inferred_kind == "temporary"
             ):
                 inferred_kind = "daily"
-            if task.task_kind == "daily" and inferred_kind == "temporary":
+            if task.task_kind == "daily" and inferred_kind == "temporary" and not inferred_relative_due_date:
                 inferred_kind = "daily"
-            if task.task_kind == "weekly" and inferred_kind == "temporary":
+            if task.task_kind == "weekly" and inferred_kind == "temporary" and not inferred_relative_due_date:
                 inferred_kind = "weekly"
             if inferred_kind != task.task_kind:
                 task.task_kind = inferred_kind
@@ -107,6 +109,8 @@ def list_tasks(request: Request, status: str = Query(default="active"), q: str =
                 task.recurrence_weekday = normalized_weekday
                 changed = True
             normalized_due_date = normalize_date_string(task.due_date)
+            if not normalized_due_date and task.task_kind != "daily":
+                normalized_due_date = inferred_relative_due_date
             if normalized_due_date != task.due_date:
                 task.due_date = normalized_due_date
                 changed = True
@@ -124,9 +128,12 @@ def create_task(payload: TaskCreateRequest, request: Request):
     with get_db() as db:
         user = require_current_user(db, request)
         clean_title, marker_kind = strip_task_kind_markers(payload.title)
-        task_kind = infer_task_kind(clean_title, payload.description, payload.due_date, payload.task_kind or marker_kind)
+        due_date = normalize_date_string(payload.due_date) or infer_relative_due_date(clean_title, payload.description)
+        explicit_kind = payload.task_kind or marker_kind
+        if due_date and explicit_kind == "weekly":
+            explicit_kind = None
+        task_kind = infer_task_kind(clean_title, payload.description, due_date, explicit_kind)
         recurrence_weekday = infer_recurrence_weekday(clean_title, payload.description, payload.recurrence_weekday)
-        due_date = normalize_date_string(payload.due_date)
         task = Task(
             user_id=user.id,
             title=clean_title.strip(),
@@ -164,6 +171,9 @@ def batch_create_tasks(payload: TaskBatchCreateRequest, request: Request):
         user = require_current_user(db, request)
         for line in lines:
             title, priority, due_date, explicit_kind = _parse_task_line(line)
+            due_date = normalize_date_string(due_date) or infer_relative_due_date(title)
+            if due_date and explicit_kind == "weekly":
+                explicit_kind = None
             task_kind = infer_task_kind(title, "", due_date, explicit_kind)
             task = Task(
                 user_id=user.id,
@@ -288,8 +298,12 @@ def update_task(task_id: int, payload: TaskUpdateRequest, request: Request):
         if payload.title is not None and payload.task_kind is None:
             clean_title, marker_kind = strip_task_kind_markers(task.title)
             task.title = clean_title
+            inferred_due_date = task.due_date or infer_relative_due_date(task.title, task.description)
+            task.due_date = normalize_date_string(inferred_due_date)
             task.task_kind = infer_task_kind(task.title, task.description, task.due_date, marker_kind or task.task_kind)
             task.recurrence_weekday = infer_recurrence_weekday(task.title, task.description, None) if task.task_kind == "weekly" else None
+        elif payload.task_kind is None and not task.due_date and task.task_kind != "daily":
+            task.due_date = infer_relative_due_date(task.title, task.description)
         elif payload.task_kind is not None and task.task_kind != "weekly":
             task.recurrence_weekday = None
         elif payload.task_kind is not None and task.task_kind == "weekly" and task.recurrence_weekday is None:

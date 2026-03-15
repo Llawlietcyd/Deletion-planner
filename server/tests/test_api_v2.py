@@ -322,6 +322,76 @@ def test_assistant_adds_english_one_off_task_with_plain_weekday_due_date():
     assert created["due_date"] == upcoming_weekday_iso(4)
 
 
+def test_manual_plural_english_weekday_phrase_becomes_weekly():
+    login_as(unique_username("manual-plural-weekday-en"), "manual-pass")
+
+    created = client.post("/api/tasks", json={"title": "Part-time job on Tuesdays"})
+    assert created.status_code == 201
+    body = created.json()
+    assert body["task_kind"] == "weekly"
+    assert body["recurrence_weekday"] == 1
+    assert body["due_date"] is None
+
+
+def test_manual_relative_english_weekday_phrase_becomes_one_off_due_date():
+    login_as(unique_username("manual-relative-weekday-en"), "manual-pass")
+
+    created = client.post("/api/tasks", json={"title": "Exam next Monday"})
+    assert created.status_code == 201
+    body = created.json()
+    assert body["task_kind"] == "temporary"
+    assert body["recurrence_weekday"] is None
+    assert body["due_date"] == next_weekday_iso(0)
+
+
+def test_list_tasks_self_heals_legacy_plural_weekday_task():
+    login_as(unique_username("legacy-plural-weekday"), "manual-pass")
+
+    created = client.post("/api/tasks", json={"title": "Part-time job on Tuesdays", "task_kind": "daily"})
+    assert created.status_code == 201
+    task_id = created.json()["id"]
+
+    from database.db import get_db
+    from database.models import Task
+    with get_db() as db:
+        task = db.get(Task, task_id)
+        task.task_kind = "daily"
+        task.recurrence_weekday = None
+        task.due_date = None
+        db.flush()
+
+    listed = client.get("/api/tasks?status=active")
+    assert listed.status_code == 200
+    healed = next(task for task in listed.json() if task["id"] == task_id)
+    assert healed["task_kind"] == "weekly"
+    assert healed["recurrence_weekday"] == 1
+    assert healed["due_date"] is None
+
+
+def test_list_tasks_self_heals_legacy_relative_weekday_task():
+    login_as(unique_username("legacy-relative-weekday"), "manual-pass")
+
+    created = client.post("/api/tasks", json={"title": "Exam next Monday", "task_kind": "weekly", "recurrence_weekday": 0})
+    assert created.status_code == 201
+    task_id = created.json()["id"]
+
+    from database.db import get_db
+    from database.models import Task
+    with get_db() as db:
+        task = db.get(Task, task_id)
+        task.task_kind = "weekly"
+        task.recurrence_weekday = 0
+        task.due_date = None
+        db.flush()
+
+    listed = client.get("/api/tasks?status=active")
+    assert listed.status_code == 200
+    healed = next(task for task in listed.json() if task["id"] == task_id)
+    assert healed["task_kind"] == "temporary"
+    assert healed["recurrence_weekday"] is None
+    assert healed["due_date"] == next_weekday_iso(0)
+
+
 def test_assistant_adds_chinese_one_off_task_with_relative_day_prefix():
     login_as(unique_username("assistant-relative-day-zh"), "assistant-pass")
     ensure_assistant_ready("zh")
