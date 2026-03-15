@@ -1118,6 +1118,7 @@ def _looks_like_fresh_request(message: str) -> bool:
     return (
         normalized.startswith(tuple(prefixes))
         or normalized.startswith(tuple(zh_prefixes))
+        or _looks_like_structured_task_statement(message)
         or _looks_like_conversational_turn(message)
         or _looks_like_scheduled_birthday_statement(message)
     )
@@ -1200,6 +1201,7 @@ def _normalize_task_query_text(text: str) -> str:
     )
     cleaned = re.sub(r"(删掉|删除|去掉|移除|完成|做完|标记完成|延后|推迟|稍后再做|标成临时|改成临时|临时任务|标成每日|改成每日|日常任务|每天任务)$", "", cleaned)
     cleaned = re.sub(r"\s+as\s+(daily|temporary)$", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"(这个|那个)?任务$", "", cleaned)
     cleaned = re.sub(r"的$", "", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" ：:，,.")
     return cleaned
@@ -1210,6 +1212,8 @@ def _canonical_task_text(text: str) -> str:
     if not cleaned:
         cleaned = _normalize_task_query_text(text)
     cleaned = re.sub(r"^(我要|我想|我得|我需要|今天要|等会要)\s*", "", cleaned)
+    cleaned = re.sub(r"^(都要|都得|都需要|都会)\s*", "", cleaned)
+    cleaned = re.sub(r"^(?:i\s+)?(?:need to|have to|should|want to)\s+", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s+", " ", cleaned).strip().lower()
     return cleaned
 
@@ -1245,7 +1249,8 @@ def _semantic_task_key(text: str) -> str:
     compact = _compact_task_text(text)
     if not compact:
         return ""
-    normalized = compact
+    normalized = re.sub(r"(这个|那个)?任务$", "", compact)
+    normalized = normalized.replace("的", "")
     for pattern, replacement in SEMANTIC_REPLACEMENTS:
         normalized = re.sub(pattern, replacement, normalized, flags=re.IGNORECASE)
     return normalized
@@ -1479,7 +1484,10 @@ def _looks_like_structured_task_statement(message: str) -> bool:
     lower = normalized.lower()
     return any([
         bool(re.match(r"^(我要|我想|我得|我需要|今天要|等会要)\s*\S+", normalized)),
+        bool(re.match(r"^(?:我)?(?:每天|每日|每天都|每日都)\s*(?:要|得|需要|会)?\s*\S+", normalized)),
         bool(re.match(r"^(i need to|i have to|i should|i want to)\s+\S+", lower)),
+        bool(re.match(r"^(?:i )?(?:every day|daily)\s+\S+", lower)),
+        bool(re.match(r"^(?:i\s+)?(.+?)\s+every day$", lower)),
         bool(re.match(r"^i\s+have\s+(?:a\s+)?plans?\s+(?:on\s+)?every\s+(.+?)\s+to\s+(.+)$", normalized, flags=re.IGNORECASE)),
         bool(re.match(r"^(我)?(?:(?:这|本|下|下下)周|(?:这|本|下|下下)星期)([一二三四五六日天12345670]).*(.+)$", normalized)),
         bool(re.match(r"^(我)?(?:每周|每星期|每礼拜|周|星期|礼拜)([一二三四五六日天12345670]).*(.+)$", normalized)),
@@ -1490,8 +1498,6 @@ def _looks_like_structured_task_statement(message: str) -> bool:
 
 def _should_prefer_llm_for_turn(message: str, llm_available: bool) -> bool:
     if not llm_available:
-        return False
-    if _has_explicit_command_intent(message):
         return False
     return True
 
@@ -1588,6 +1594,8 @@ Rules:
 - If the user asks when an existing task happens, answer from the task/date context instead of modifying anything.
 - If the user asks for all current tasks, then and only then list all active tasks.
 - If the user naturally describes a real plan or appointment to remember, you may convert it into an add_task even if they did not use an imperative command.
+- Treat short first-person routine statements in both Chinese and English as task creation when they clearly describe a habit or recurring plan. Examples: "我每天都要做饭", "我每天喝两升水", "I cook every day", "I need to work out every day".
+- Treat direct action requests in both Chinese and English as concrete task operations even if the task name is phrased loosely. Examples: "帮我删除喝两升水的任务", "把喝水那个删了", "delete the water task", "remove my drink water task".
 - Extract clean task titles only. Remove wrappers like "帮我加一个", "加上", "task", "任务", or date shells.
 - Prefer concise, natural wording. Be helpful, grounded, and specific.
 - If the request is ambiguous, ask one short clarification question.
@@ -1672,8 +1680,7 @@ def _call_assistant_llm(message: str, lang: str, profile: Dict[str, Any], histor
 
     allow_natural_language_fast_paths = (
         (not llm_available)
-        or _has_explicit_command_intent(message)
-        or (_looks_like_structured_task_statement(message) and llm_first_attempted and not llm_first_reply)
+        or (llm_first_attempted and not llm_first_reply)
     )
 
     contextual_agenda_reply = _contextual_agenda_reply(ctx, message, history, lang)
@@ -1827,6 +1834,41 @@ def _call_assistant_llm(message: str, lang: str, profile: Dict[str, Any], histor
             return action_reply(
                 "",
                 {"type": "add_task", "title": title, "description": "", "priority": 0, "due_date": due_date},
+            )
+
+    recurring_daily_zh = re.match(r"^(?:我)?(?:每天|每日|每天都|每日都)\s*(?:要|得|需要|会)?\s*(.+)$", normalized)
+    if allow_natural_language_fast_paths and not _looks_like_question(message) and recurring_daily_zh:
+        title = _canonical_task_text(recurring_daily_zh.group(1))
+        if title:
+            return action_reply(
+                "",
+                {
+                    "type": "add_task",
+                    "title": title,
+                    "description": "",
+                    "priority": 0,
+                    "due_date": None,
+                    "task_kind": "daily",
+                },
+            )
+
+    recurring_daily_en = (
+        re.match(r"^(?:i\s+)?(?:every day|daily)\s+(.+)$", normalized, flags=re.IGNORECASE)
+        or re.match(r"^(?:i\s+)?(.+?)\s+every day$", normalized, flags=re.IGNORECASE)
+    )
+    if allow_natural_language_fast_paths and not _looks_like_question(message) and recurring_daily_en:
+        title = _canonical_task_text(recurring_daily_en.group(1))
+        if title:
+            return action_reply(
+                "",
+                {
+                    "type": "add_task",
+                    "title": title,
+                    "description": "",
+                    "priority": 0,
+                    "due_date": None,
+                    "task_kind": "daily",
+                },
             )
 
     recurring_en = re.match(

@@ -964,6 +964,20 @@ def test_assistant_can_delete_task_with_spaced_compact_name():
     assert leetcode["status"] == "deleted"
 
 
+def test_assistant_can_delete_task_with_natural_chinese_query_variation():
+    login_as(unique_username("assistant-natural-delete"), "assistant-pass")
+    client.post("/api/tasks", json={"title": "喝两升的水", "task_kind": "daily"})
+
+    reply = client.post("/api/assistant/chat", json={"message": "帮我删除喝两升水的任务", "lang": "zh"})
+    assert reply.status_code == 200
+    assistant_messages = [message["content"] for message in reply.json()["messages"] if message["role"] == "assistant"]
+    assert any("已删除任务：喝两升的水" in message for message in assistant_messages)
+
+    tasks = client.get("/api/tasks?status=all").json()
+    water = next(task for task in tasks if task["title"] == "喝两升的水")
+    assert water["status"] == "deleted"
+
+
 def test_assistant_followup_clarification_executes_directly():
     login_as(unique_username("assistant-followup-direct"), "assistant-pass")
     client.post("/api/tasks", json={"title": "leetcode easy", "task_kind": "temporary"})
@@ -1203,6 +1217,46 @@ def test_assistant_question_clears_pending_followup_instead_of_hijacking_chat():
     assistant_messages = [message["content"] for message in body["messages"] if message["role"] == "assistant"]
     assert any("1998-03-17" in message and "下一次生日是" in message for message in assistant_messages)
     assert body["pending"]["type"] == ""
+
+
+def test_assistant_new_daily_statement_clears_pending_followup_and_creates_task():
+    login_as(unique_username("assistant-daily-pending"), "assistant-pass")
+    ensure_assistant_ready("zh")
+
+    first = client.post("/api/assistant/chat", json={"message": "删掉不存在的任务", "lang": "zh"})
+    assert first.status_code == 200
+    assert first.json()["pending"]["type"] == "llm_followup"
+
+    second = client.post("/api/assistant/chat", json={"message": "我每天都要做饭", "lang": "zh"})
+    assert second.status_code == 200
+    assistant_messages = [message["content"] for message in second.json()["messages"] if message["role"] == "assistant"]
+    assert any("已添加任务：做饭" in message for message in assistant_messages)
+    assert second.json()["pending"]["type"] == ""
+
+    tasks = client.get("/api/tasks?status=active")
+    assert tasks.status_code == 200
+    created = next(task for task in tasks.json() if task["title"] == "做饭")
+    assert created["task_kind"] == "daily"
+
+
+def test_assistant_new_english_daily_statement_clears_pending_followup_and_creates_task():
+    login_as(unique_username("assistant-daily-pending-en"), "assistant-pass")
+    ensure_assistant_ready("en")
+
+    first = client.post("/api/assistant/chat", json={"message": "delete a task that does not exist", "lang": "en"})
+    assert first.status_code == 200
+    assert first.json()["pending"]["type"] == "llm_followup"
+
+    second = client.post("/api/assistant/chat", json={"message": "I cook every day", "lang": "en"})
+    assert second.status_code == 200
+    assistant_messages = [message["content"] for message in second.json()["messages"] if message["role"] == "assistant"]
+    assert any("Added task: cook" in message for message in assistant_messages)
+    assert second.json()["pending"]["type"] == ""
+
+    tasks = client.get("/api/tasks?status=active")
+    assert tasks.status_code == 200
+    created = next(task for task in tasks.json() if task["title"] == "cook")
+    assert created["task_kind"] == "daily"
 
 
 def test_assistant_answers_existing_task_date_question_without_mutating_it():

@@ -13,8 +13,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from api_v2.main import _rate_buckets, app
+from database.db import init_db
 
 
+init_db()
 client = TestClient(app)
 
 
@@ -60,6 +62,7 @@ def make_cases() -> List[Case]:
         ("zh-add-eat", "我要吃饭", "吃饭"),
         ("zh-add-sleep", "我得睡觉", "睡觉"),
         ("zh-add-walkdog", "我需要遛狗", "遛狗"),
+        ("zh-add-daily-cook", "我每天都要做饭", "做饭"),
     ]
     for name, message, expected_title in natural_zh:
         def _case(message=message, expected_title=expected_title):
@@ -72,6 +75,7 @@ def make_cases() -> List[Case]:
         ("en-add-lunch", "I need to eat lunch", "eat lunch"),
         ("en-add-run", "I want to run", "run"),
         ("en-add-sleep", "I have to sleep", "sleep"),
+        ("en-add-daily-cook", "I cook every day", "cook"),
     ]
     for name, message, expected_title in natural_en:
         def _case(message=message, expected_title=expected_title):
