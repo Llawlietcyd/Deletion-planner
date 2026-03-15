@@ -706,6 +706,29 @@ def test_developer_reset_clears_local_data():
     assert session.json()["logged_in"] is False
 
 
+def test_developer_reset_preserves_protected_showcase_account():
+    login_as("chen", "123456")
+    client.post("/api/tasks", json={"title": "Protected showcase task"})
+    client.post("/api/mood", json={"mood_level": 4, "note": "protected mood"})
+
+    login_as("reset-other-user", "reset-pass")
+    client.post("/api/tasks", json={"title": "Temporary reset task"})
+
+    reset = client.post("/api/settings/developer/reset")
+    assert reset.status_code == 200
+    assert reset.json()["ok"] is True
+    assert "preserved" in reset.json()["message"].lower()
+
+    login_as("chen", "123456")
+    tasks = client.get("/api/tasks?status=active")
+    assert tasks.status_code == 200
+    assert any(task["title"] == "Protected showcase task" for task in tasks.json())
+
+    mood = client.get("/api/mood/today")
+    assert mood.status_code == 200
+    assert mood.json()["note"] == "protected mood"
+
+
 def test_song_recommendations_use_active_tasks_without_plan():
     login_as("songs-user", "songs-pass")
     client.post("/api/tasks", json={"title": "Write thesis draft", "priority": 5})

@@ -3,13 +3,16 @@ from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 import json
 import os
+from pathlib import Path
 
 from database.models import Base
+
+DEFAULT_SQLITE_PATH = (Path(__file__).resolve().parents[1] / "deletion_planner.db").resolve()
 
 # Database configuration — defaults to SQLite, can switch to MySQL via env var
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "sqlite:///deletion_planner.db"
+    f"sqlite:///{DEFAULT_SQLITE_PATH}"
 )
 
 engine = create_engine(
