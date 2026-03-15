@@ -39,7 +39,7 @@ def get_llm_config():
         key = config["api_key"]
         masked_key = key[:8] + "..." + key[-4:] if len(key) > 12 else "****"
     return {
-        "provider": config.get("provider", "deepseek"),
+        "provider": "deepseek",
         "model": config.get("model", ""),
         "api_key_set": bool(config.get("api_key")),
         "api_key_masked": masked_key,

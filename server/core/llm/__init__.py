@@ -1,4 +1,4 @@
-"""DeepSeek-only LLM service factory and runtime configuration."""
+"""LLM service factory and runtime configuration."""
 
 import json
 import logging
@@ -6,6 +6,7 @@ import os
 from typing import Any, Dict
 
 from core.llm.base import BaseLLMService
+from core.llm.mock import MockLLMService
 from core.llm.deepseek_provider import DeepSeekLLMService
 
 logger = logging.getLogger("deletion-planner-llm")
@@ -65,7 +66,7 @@ def get_runtime_config() -> Dict[str, str]:
 
     _load_from_db()
     return {
-        "provider": "deepseek",
+        "provider": (os.getenv("LLM_PROVIDER") or "deepseek").strip().lower() or "deepseek",
         "api_key": _runtime_config.get("api_key") or os.getenv("DEEPSEEK_API_KEY") or "",
         "model": _runtime_config.get("model") or os.getenv("DEEPSEEK_MODEL") or "deepseek-chat",
     }
@@ -81,8 +82,6 @@ def set_runtime_config(updates: Dict[str, Any]) -> None:
     config = get_runtime_config()
     api_key = config["api_key"]
     model = config["model"]
-
-    os.environ["LLM_PROVIDER"] = "deepseek"
     if api_key:
         os.environ["DEEPSEEK_API_KEY"] = api_key
     if model:
@@ -92,6 +91,13 @@ def set_runtime_config(updates: Dict[str, Any]) -> None:
 
 
 def get_llm_service(lang: str = "en") -> BaseLLMService:
-    """Return the configured DeepSeek provider."""
+    """Return the configured provider, with mock support for local/testing flows."""
 
+    config = get_runtime_config()
+    provider = str(config.get("provider") or os.getenv("LLM_PROVIDER") or "deepseek").strip().lower() or "deepseek"
+
+    if provider == "deepseek" and config.get("api_key"):
+        return DeepSeekLLMService(lang=lang)
+    if provider == "mock":
+        return MockLLMService(lang=lang)
     return DeepSeekLLMService(lang=lang)
