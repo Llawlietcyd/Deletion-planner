@@ -12,6 +12,8 @@ const MOOD_OPTIONS = [
 ];
 
 const APP_TIMEZONE = 'America/New_York';
+const DAY_WAVE_WIDTH = 200;
+const DAY_WAVE_HEIGHT = 112;
 
 function formatDateKeyInTimezone(value) {
   const date = value instanceof Date ? value : new Date(value);
@@ -92,7 +94,7 @@ function getMoodY(level, range = {}) {
 
 function buildWaveGeometry(entries, options = {}) {
   if (!entries.length) {
-    return { points: '', dots: [] };
+    return { points: '', areaPoints: '', dots: [] };
   }
   const moodLevels = entries.map((entry) => Number(entry.mood_level || 0)).filter(Boolean);
   const dynamicRange = {
@@ -107,8 +109,14 @@ function buildWaveGeometry(entries, options = {}) {
     const y = getMoodY(entry.mood_level, dynamicRange);
     return { x, y, entry, index };
   });
+  const bottom = dynamicRange.bottom;
   return {
     points: dots.map(({ x, y }) => `${x},${y}`).join(' '),
+    areaPoints: [
+      `${dots[0].x},${bottom}`,
+      ...dots.map(({ x, y }) => `${x},${y}`),
+      `${dots[dots.length - 1].x},${bottom}`,
+    ].join(' '),
     dots,
   };
 }
@@ -322,10 +330,10 @@ function MoodCheckIn({ onMoodLogged, refreshSignal = 0 }) {
   const timelineMarkers = useMemo(() => buildTimelineMarkers(timelineEntries, lang), [lang, timelineEntries]);
   const dayWave = useMemo(() => buildWaveGeometry(selectedDayEntries, {
     dynamicScale: true,
-    top: 10,
-    bottom: 74,
+    top: 8,
+    bottom: 104,
     minX: 10,
-    maxX: 190,
+    maxX: DAY_WAVE_WIDTH - 10,
   }), [selectedDayEntries]);
   const currentMonthDate = parseDateKey(`${calendarMonth}-01`);
   const monthFirstWeekday = currentMonthDate.getUTCDay();
@@ -566,12 +574,23 @@ function MoodCheckIn({ onMoodLogged, refreshSignal = 0 }) {
 
                   <div className="mood-wave-shell">
                     {selectedDayEntries.length ? (
-                      <svg viewBox="0 0 200 84" className="mood-wave-svg" preserveAspectRatio="none" aria-hidden="true">
-                        <polyline points={dayWave.points} className="mood-wave-line" />
+                      <div className="mood-wave-chart">
+                        <svg viewBox={`0 0 ${DAY_WAVE_WIDTH} ${DAY_WAVE_HEIGHT}`} className="mood-wave-svg" preserveAspectRatio="none" aria-hidden="true">
+                          <polygon points={dayWave.areaPoints} className="mood-wave-area" />
+                          <polyline points={dayWave.points} className="mood-wave-line" />
+                        </svg>
                         {dayWave.dots.map(({ entry, index, x, y }) => (
-                          <circle key={entry.id || `${entry.date}-${index}`} cx={x} cy={y} r="4.5" className={`mood-wave-dot level-${entry.mood_level}`} />
+                          <span
+                            key={entry.id || `${entry.date}-${index}`}
+                            className={`mood-wave-dot-pin level-${entry.mood_level}`}
+                            style={{
+                              left: `${(x / DAY_WAVE_WIDTH) * 100}%`,
+                              top: `${(y / DAY_WAVE_HEIGHT) * 100}%`,
+                            }}
+                            aria-hidden="true"
+                          />
                         ))}
-                      </svg>
+                      </div>
                     ) : (
                       <div className="text-xs text-[color:var(--muted)]">{t.moodDayEmpty}</div>
                     )}
@@ -804,27 +823,44 @@ function MoodCheckIn({ onMoodLogged, refreshSignal = 0 }) {
           margin-top: 12px;
           border-radius: 16px;
           background: linear-gradient(180deg, rgba(255,255,255,0.66), rgba(250,243,234,0.8));
-          padding: 12px 12px;
-          min-height: 108px;
-          display: flex;
-          align-items: center;
+          padding: 6px 10px 2px;
+        }
+        .mood-wave-chart {
+          position: relative;
+          width: 100%;
+          height: 112px;
         }
         .mood-wave-svg {
+          position: absolute;
+          inset: 0;
           width: 100%;
-          height: 84px;
+          height: 100%;
+          display: block;
+        }
+        .mood-wave-area {
+          fill: rgba(210, 86, 44, 0.08);
         }
         .mood-wave-line {
           fill: none;
           stroke: rgba(210, 86, 44, 0.72);
-          stroke-width: 2.5;
+          stroke-width: 3;
           stroke-linecap: round;
           stroke-linejoin: round;
         }
-        .mood-wave-dot.level-1 { fill: #ff6a62; }
-        .mood-wave-dot.level-2 { fill: #ff9a62; }
-        .mood-wave-dot.level-3 { fill: #7e95ff; }
-        .mood-wave-dot.level-4 { fill: #46d577; }
-        .mood-wave-dot.level-5 { fill: #ffc64f; }
+        .mood-wave-dot-pin {
+          position: absolute;
+          width: 12px;
+          height: 12px;
+          border-radius: 999px;
+          border: 2px solid rgba(255,255,255,0.9);
+          transform: translate(-50%, -50%);
+          box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+        }
+        .mood-wave-dot-pin.level-1 { background: #ff6a62; }
+        .mood-wave-dot-pin.level-2 { background: #ff9a62; }
+        .mood-wave-dot-pin.level-3 { background: #7e95ff; }
+        .mood-wave-dot-pin.level-4 { background: #46d577; }
+        .mood-wave-dot-pin.level-5 { background: #ffc64f; }
         .mood-day-digest {
           margin-top: 12px;
           border-radius: 16px;
