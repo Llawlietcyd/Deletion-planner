@@ -1,8 +1,10 @@
 import React, { useState, useCallback, useRef, createContext, useContext } from 'react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const ToastContext = createContext();
 
 export function ToastProvider({ children }) {
+  const { t } = useLanguage();
   const [toast, setToast] = useState(null);
   const timerRef = useRef(null);
 
@@ -35,19 +37,19 @@ export function ToastProvider({ children }) {
       {children}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-slide-up">
-          <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-800 dark:bg-slate-700 text-white shadow-lg min-w-[280px]">
+          <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[color:var(--text)] text-[color:var(--bg)] shadow-lg min-w-[280px]">
             <span className="text-sm flex-1">{toast.message}</span>
             {toast.undoAction && (
               <button
                 onClick={handleUndo}
-                className="text-sm font-semibold text-[#007AFF] hover:text-[#4DA3FF] transition-colors"
+                className="text-sm font-semibold text-[color:var(--accent)] hover:opacity-80 transition-colors"
               >
-                Undo
+                {t.undoAction}
               </button>
             )}
             <button
               onClick={dismissToast}
-              className="text-slate-400 hover:text-white text-sm ml-1"
+              className="opacity-60 hover:opacity-100 text-sm ml-1"
             >
               ✕
             </button>

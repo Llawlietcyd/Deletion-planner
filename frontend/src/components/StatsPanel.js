@@ -78,13 +78,13 @@ function StatsPanel({ hideHeader = false }) {
           <div className="h-4 flex-1 overflow-hidden rounded-full bg-[color:var(--bg-strong)]">
             <div
               className="h-full rounded-full bg-[color:var(--accent)] transition-all duration-500"
-              style={{ width: `${Math.min(stats.completion_rate, 100)}%` }}
+              style={{ width: `${Math.min(Number(stats.completion_rate) || 0, 100)}%` }}
             />
           </div>
-          <p className="text-3xl font-semibold text-[color:var(--text)]">{stats.completion_rate}%</p>
+          <p className="text-3xl font-semibold text-[color:var(--text)]">{Number(stats.completion_rate) || 0}%</p>
         </div>
         <p className="mt-3 text-sm text-[color:var(--muted)]">
-          {t.completionOf(stats.completed_plan_tasks, stats.total_plan_tasks)}
+          {t.completionOf(stats.completed_plan_tasks ?? 0, stats.total_plan_tasks ?? 0)}
         </p>
       </div>
 

@@ -3,12 +3,25 @@ import { getHistory } from '../http/api';
 import { useLanguage } from '../i18n/LanguageContext';
 
 function HistoryPanel({ hideHeader = false }) {
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const pageSize = 50;
+  const hasChinese = (text) => /[\u3400-\u9fff]/.test(text || '');
+  const fallbackReason = (action) => {
+    const map = {
+      created: t.historyReasonCreated,
+      planned: t.historyReasonPlanned,
+      completed: t.historyReasonCompleted,
+      missed: t.historyReasonMissed,
+      deferred: t.historyReasonDeferred,
+      deleted: t.historyReasonDeleted,
+      restored: t.historyReasonRestored,
+    };
+    return map[action] || '';
+  };
 
   const actionStyle = {
     created: 'bg-slate-100 text-slate-700',
@@ -17,6 +30,7 @@ function HistoryPanel({ hideHeader = false }) {
     missed: 'bg-slate-200 text-slate-700',
     deferred: 'bg-amber-100 text-amber-700',
     deleted: 'bg-red-100 text-red-700',
+    restored: 'bg-sky-100 text-sky-700',
   };
 
   useEffect(() => {
@@ -80,10 +94,11 @@ function HistoryPanel({ hideHeader = false }) {
   }
 
   const grouped = history.reduce((accumulator, entry) => {
-    if (!accumulator[entry.date]) {
-      accumulator[entry.date] = [];
+    const dateKey = entry.date || 'unknown';
+    if (!accumulator[dateKey]) {
+      accumulator[dateKey] = [];
     }
-    accumulator[entry.date].push(entry);
+    accumulator[dateKey].push(entry);
     return accumulator;
   }, {});
 
@@ -115,9 +130,11 @@ function HistoryPanel({ hideHeader = false }) {
                     </p>
                   </div>
 
-                  {entry.ai_reasoning && (
+                  {(entry.ai_reasoning || fallbackReason(entry.action)) && (
                     <p className="text-sm text-[color:var(--muted)] md:max-w-md md:text-right">
-                      {entry.ai_reasoning}
+                      {lang === 'zh' && entry.ai_reasoning && !hasChinese(entry.ai_reasoning)
+                        ? fallbackReason(entry.action)
+                        : entry.ai_reasoning || fallbackReason(entry.action)}
                     </p>
                   )}
                 </div>
@@ -129,7 +146,7 @@ function HistoryPanel({ hideHeader = false }) {
       {hasMore && (
         <div className="text-center">
           <button onClick={handleLoadMore} disabled={loadingMore} className="btn-ghost">
-            {loadingMore ? '...' : t.loadMore}
+            {loadingMore ? t.loadingMore : t.loadMore}
           </button>
         </div>
       )}

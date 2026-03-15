@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 
 from core.llm.base import BaseLLMService
 from core.llm.mock import MockLLMService
+from core.tarot_catalog import enrich_fortune_card, tarot_reference_lines
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +66,10 @@ class DeepSeekLLMService(BaseLLMService):
 
     def __init__(self, lang: str = "en"):
         super().__init__(lang=lang)
-        self.api_key = os.getenv("DEEPSEEK_API_KEY", "")
-        self.model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+        from core.llm import get_runtime_config
+        config = get_runtime_config()
+        self.api_key = config.get("api_key") or ""
+        self.model = config.get("model") or "deepseek-chat"
         self._fallback = MockLLMService(lang=lang)
 
         if not self.api_key:
@@ -107,6 +110,15 @@ class DeepSeekLLMService(BaseLLMService):
             body = json.loads(response.read().decode("utf-8"))
 
         return body["choices"][0]["message"]["content"].strip()
+
+    @staticmethod
+    def _strip_markdown_fences(text: str) -> str:
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        if text.endswith("```"):
+            text = text[:-3].rstrip()
+        return text.strip()
 
     def recommend_decisions(self, context: Dict[str, Any]) -> Dict[str, Any]:
         if not self.api_key:
@@ -152,11 +164,7 @@ class DeepSeekLLMService(BaseLLMService):
         )
 
         try:
-            raw = self._call_deepseek(SYSTEM_PROMPT, prompt)
-            if raw.startswith("```"):
-                raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                if raw.endswith("```"):
-                    raw = raw[:-3]
+            raw = self._strip_markdown_fences(self._call_deepseek(SYSTEM_PROMPT, prompt))
             result = json.loads(raw)
             if not isinstance(result.get("keep"), list):
                 raise ValueError("Missing 'keep' list")
@@ -191,3 +199,135 @@ class DeepSeekLLMService(BaseLLMService):
         except Exception as exc:
             logger.error("DeepSeek deletion reasoning failed: %s", exc)
             return self._fallback.generate_deletion_reasoning(task, rule_reasons)
+
+    def recommend_songs(
+        self, mood_level: int, task_count: int, lang: str = "en",
+        mood_note: str = "", top_tasks: str = "", refresh_token: str = "",
+        exclude_songs: List[str] | None = None
+    ) -> List[Dict[str, str]]:
+        if not self.api_key:
+            return self._fallback.recommend_songs(
+                mood_level,
+                task_count,
+                lang,
+                mood_note=mood_note,
+                top_tasks=top_tasks,
+                refresh_token=refresh_token,
+                exclude_songs=exclude_songs,
+            )
+
+        lang_inst = "Respond in Simplified Chinese." if lang == "zh" else "Respond in English."
+        mood_labels = {1: "terrible", 2: "bad", 3: "okay", 4: "good", 5: "amazing"}
+        exclusion_block = ""
+        if exclude_songs:
+            exclusion_lines = "\n".join(f"- {item}" for item in exclude_songs[:12])
+            exclusion_block = f"\nAvoid repeating these recently shown songs if possible:\n{exclusion_lines}\n"
+        prompt = f"""The user is feeling "{mood_labels.get(mood_level, 'okay')}" (level {mood_level}/5).
+They have {task_count} active tasks.{f' Mood note: {mood_note}' if mood_note else ''}
+{f'Top tasks: {top_tasks}' if top_tasks else ''}
+Refresh token: {refresh_token or 'initial-load'}
+{exclusion_block}
+
+Recommend exactly 14 songs that match their mood, current task load, and the emotional/cognitive needs implied by the task context.
+This is not a generic playlist. Treat the task context as primary.
+If the task context suggests writing, reading, coding, analysis, or study, bias toward deep-focus tracks with low lyrical interference.
+If the context suggests presentation, meeting, interview, or social activation, bias toward confidence-building, energizing tracks.
+If mood is low, prefer regulation, grounding, and safety over hype.
+If mood is high and the tasks are important, prefer momentum and precision instead of random party tracks.
+Use the refresh token to intentionally explore a different but still coherent slice of music taste on each refresh.
+Do not repeat the same obvious global hits every time. Vary genres, decades, artists, and languages while staying coherent.
+For each song, include:
+- name: song title
+- artist: artist name
+- album: album name
+- mood_tag: one-word mood descriptor
+
+{lang_inst}
+Return ONLY a JSON array, no markdown fences."""
+
+        try:
+            raw = self._strip_markdown_fences(self._call_deepseek(
+                "You are a music recommendation assistant. Return valid JSON only.",
+                prompt, max_tokens=900,
+            ))
+            result = json.loads(raw)
+            if isinstance(result, list) and len(result) > 0:
+                return result[:14]
+        except Exception as exc:
+            logger.error("DeepSeek recommend_songs failed: %s", exc)
+
+        return self._fallback.recommend_songs(
+            mood_level,
+            task_count,
+            lang,
+            mood_note=mood_note,
+            top_tasks=top_tasks,
+            refresh_token=refresh_token,
+            exclude_songs=exclude_songs,
+        )
+
+    def generate_fortune(
+        self, birthday: str, current_date: str, lang: str = "en",
+        zodiac: Dict[str, str] = None, user_context: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        if not self.api_key:
+            return self._fallback.generate_fortune(birthday, current_date, lang, zodiac=zodiac, user_context=user_context)
+
+        lang_inst = "Respond in Simplified Chinese." if lang == "zh" else "Respond in English."
+        zod = zodiac or {}
+        ctx = user_context or {}
+
+        zodiac_info = f"Western: {zod.get('western', 'unknown')}, Chinese: {zod.get('chinese', 'unknown')}"
+        tarot_reference = "\n".join(tarot_reference_lines())
+        prompt = f"""Generate a personalized daily tarot reading for today ({current_date}).
+
+User info:
+- Birthday: {birthday}
+- Zodiac: {zodiac_info}
+- Active tasks: {ctx.get('task_count', 0)}
+- Top tasks:\n{ctx.get('top_tasks', 'None')}
+- Current mood level: {ctx.get('mood_level', 'unknown')}/5
+{f"- Mood note: {ctx.get('mood_note', '')}" if ctx.get('mood_note') else ''}
+
+You must choose exactly ONE card from this Rider-Waite-Smith Major Arcana deck reference:
+{tarot_reference}
+
+Base the reading on the chosen card's imagery and its upright/reversed keywords.
+Consider the user's zodiac sign, current tasks, and mood.
+If there is a focus task or planned tasks, make the reading clearly react to them.
+
+Return JSON with this exact structure:
+{{
+  "card_number": 0-21,
+  "is_reversed": true/false,
+  "interpretation": "2-3 sentences personalized to user's tasks and zodiac",
+  "auspicious": ["3 favorable activities for today based on their tasks"],
+  "inauspicious": ["2 activities to avoid"],
+  "lucky_color": "a color",
+  "advice": "one sentence of actionable wisdom",
+  "zodiac_label": "Western sign · Chinese zodiac",
+  "focus_task": "the main task the reading points to, or empty string",
+  "planned_tasks": ["up to 3 task titles from today's plan"],
+  "visual_theme": "a short visual mood such as moonlit, solar, velvet, ember, oceanic"
+}}
+
+{lang_inst}
+Return ONLY the JSON object, no markdown fences."""
+
+        try:
+            raw = self._strip_markdown_fences(self._call_deepseek(
+                "You are a mystical tarot reader who gives insightful, personalized readings. Return valid JSON only.",
+                prompt, max_tokens=800,
+            ))
+            result = json.loads(raw)
+            if isinstance(result, dict) and "card_number" in result:
+                result = enrich_fortune_card(result, lang)
+                result.setdefault("focus_task", ctx.get("focus_task", ""))
+                result.setdefault("planned_tasks", ctx.get("planned_tasks", []))
+                result.setdefault("visual_theme", "velvet")
+                result.setdefault("zodiac_label", zodiac_info)
+                return result
+        except Exception as exc:
+            logger.error("DeepSeek generate_fortune failed: %s", exc)
+
+        return self._fallback.generate_fortune(birthday, current_date, lang, zodiac=zodiac, user_context=user_context)

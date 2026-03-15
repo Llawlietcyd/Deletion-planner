@@ -9,7 +9,7 @@ export const ROUTE_CONSTANTS = {
 };
 
 export const API_ENDPOINTS = {
-  BASE_URL: process.env.REACT_APP_API_ENDPOINT || 'http://localhost:5001',
+  BASE_URL: process.env.REACT_APP_API_ENDPOINT || '',
   HEALTH: '/health',
   TASKS: '/api/tasks',
   TASKS_BATCH: '/api/tasks/batch',
@@ -19,6 +19,23 @@ export const API_ENDPOINTS = {
   HISTORY: '/api/history',
   STATS: '/api/stats',
   WEEKLY_SUMMARY: '/api/weekly-summary',
+  REVIEW_INSIGHTS: '/api/review-insights',
   SETTINGS_LLM: '/api/settings/llm',
   SETTINGS_LLM_TEST: '/api/settings/llm/test',
+  SESSION: '/api/session',
+  SESSION_LOGIN: '/api/session/login',
+  SESSION_LOGOUT: '/api/session/logout',
+  ONBOARDING: '/api/onboarding',
+  ONBOARDING_COMPLETE: '/api/onboarding/complete',
+  MOOD: '/api/mood',
+  MOOD_TODAY: '/api/mood/today',
+  MOOD_HISTORY: '/api/mood/history',
+  FOCUS_SESSIONS: '/api/focus/sessions',
+  FOCUS_STATS: '/api/focus/stats',
+  FOCUS_HISTORY: '/api/focus/history',
+  SONGS_RECOMMEND: '/api/songs/recommend',
+  FORTUNE_DAILY: '/api/fortune/daily',
+  FORTUNE_TODAY: '/api/fortune/today',
+  ASSISTANT_STATE: '/api/assistant/state',
+  ASSISTANT_CHAT: '/api/assistant/chat',
 };

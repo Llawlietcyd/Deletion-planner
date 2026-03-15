@@ -13,7 +13,7 @@ COPY . .
 EXPOSE 5001
 
 # Set environment variables
-ENV LLM_PROVIDER=mock
+ENV LLM_PROVIDER=deepseek
 ENV PORT=5001
 
 # Run the application with uvicorn (FastAPI)

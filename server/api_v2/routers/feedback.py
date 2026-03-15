@@ -1,9 +1,11 @@
 from datetime import date, datetime, timedelta, timezone
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from api_v2.schemas import FeedbackSubmitRequest
+from api_v2.user_context import plan_storage_key, require_current_user
 from core.deletion import check_deletion_candidates
 from core.planner import build_replan_preview
+from core.time import local_today_iso
 from database.db import get_db
 from database.models import (
     Task, DailyPlan, PlanTask, TaskHistory,
@@ -14,8 +16,8 @@ router = APIRouter(prefix="/feedback", tags=["feedback"])
 
 
 @router.post("")
-def submit_feedback(payload: FeedbackSubmitRequest):
-    target_date = payload.date or date.today().isoformat()
+def submit_feedback(payload: FeedbackSubmitRequest, request: Request):
+    target_date = payload.date or local_today_iso()
     if not payload.results:
         raise HTTPException(status_code=400, detail={"error_code": "EMPTY_FEEDBACK", "message": "No feedback results provided"})
 
@@ -24,7 +26,9 @@ def submit_feedback(payload: FeedbackSubmitRequest):
     deferred_count = 0
 
     with get_db() as db:
-        plan = db.query(DailyPlan).filter(DailyPlan.date == target_date).first()
+        user = require_current_user(db, request)
+        storage_key = plan_storage_key(user.id, target_date)
+        plan = db.query(DailyPlan).filter(DailyPlan.date == storage_key).first()
         if not plan:
             raise HTTPException(status_code=404, detail={"error_code": "PLAN_NOT_FOUND", "message": "No plan found for this date"})
 
@@ -34,9 +38,11 @@ def submit_feedback(payload: FeedbackSubmitRequest):
                 continue
 
             new_status = entry.status
+            if pt.status != PlanTaskStatus.PLANNED.value:
+                continue
             pt.status = new_status
             task = db.get(Task, pt.task_id)
-            if not task:
+            if not task or task.user_id != user.id:
                 continue
 
             if new_status == PlanTaskStatus.COMPLETED.value:
@@ -70,7 +76,7 @@ def submit_feedback(payload: FeedbackSubmitRequest):
             ))
 
         db.flush()
-        active_tasks = db.query(Task).filter(Task.status == TaskStatus.ACTIVE.value).all()
+        active_tasks = db.query(Task).filter(Task.user_id == user.id, Task.status == TaskStatus.ACTIVE.value).all()
         deletion_suggestions = check_deletion_candidates(active_tasks, lang=payload.lang)
         next_day_preview = None
         if active_tasks:

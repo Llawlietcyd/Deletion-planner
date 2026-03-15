@@ -33,6 +33,12 @@ jest.mock('../i18n/LanguageContext', () => ({
   }),
 }));
 
+jest.mock('./ToastContext', () => ({
+  useToast: () => ({
+    showToast: jest.fn(),
+  }),
+}));
+
 describe('TaskList', () => {
   beforeEach(() => {
     window.confirm = jest.fn(() => true);

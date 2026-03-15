@@ -7,12 +7,14 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from dotenv import load_dotenv
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 
 from database.db import init_db  # noqa: E402
-from api_v2.routers import tasks, plans, feedback, analytics, settings  # noqa: E402
+from api_v2.routers import tasks, plans, feedback, analytics, settings, session, mood, focus, songs, fortune, assistant  # noqa: E402
 
 app = FastAPI(title="Deletion Planner API v2", version="2.0.0")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -116,3 +118,9 @@ app.include_router(plans.router, prefix="/api")
 app.include_router(feedback.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
+app.include_router(session.router, prefix="/api")
+app.include_router(mood.router, prefix="/api")
+app.include_router(focus.router, prefix="/api")
+app.include_router(songs.router, prefix="/api")
+app.include_router(fortune.router, prefix="/api")
+app.include_router(assistant.router, prefix="/api")

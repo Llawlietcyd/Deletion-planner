@@ -10,6 +10,15 @@ const PRIORITY_DOT = {
   5: 'bg-red-500',
 };
 
+function recurringKindLabel(task, lang, fallback) {
+  if ((task?.task_kind || 'temporary') !== 'weekly') return fallback;
+  const weekday = Number(task?.recurrence_weekday);
+  if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) return fallback;
+  const zh = ['每周一', '每周二', '每周三', '每周四', '每周五', '每周六', '每周日'];
+  const en = ['Every Mon', 'Every Tue', 'Every Wed', 'Every Thu', 'Every Fri', 'Every Sat', 'Every Sun'];
+  return (lang === 'zh' ? zh : en)[weekday];
+}
+
 const PRIORITY_OPTIONS = [
   { value: 0, labelKey: 'priorityLow' },
   { value: 1, labelKey: 'priorityMedium' },
@@ -18,7 +27,7 @@ const PRIORITY_OPTIONS = [
 ];
 
 function TaskList({ tasks, onRefresh, filter = 'active' }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { showToast } = useToast();
   const [orderedTasks, setOrderedTasks] = useState(tasks || []);
   const [draggedTaskId, setDraggedTaskId] = useState(null);
@@ -29,6 +38,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
     description: '',
     priority: 0,
     category: 'unclassified',
+    task_kind: 'temporary',
     due_date: '',
   });
 
@@ -42,7 +52,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
     core: 'badge-core',
     deferrable: 'badge-deferrable',
     deletion_candidate: 'badge-deletion',
-    unclassified: 'inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600',
+    unclassified: 'inline-flex items-center rounded-full bg-[color:var(--surface)] px-2.5 py-1 text-xs font-semibold text-[color:var(--muted)]',
   };
 
   const categoryLabel = {
@@ -51,6 +61,16 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
     deletion_candidate: t.catDeletion,
     unclassified: t.catUnclassified,
   };
+  const kindBadge = {
+    daily: 'inline-flex items-center rounded-full bg-[color:var(--surface)] px-2.5 py-1 text-xs font-semibold text-[color:var(--text)]',
+    weekly: 'inline-flex items-center rounded-full bg-[color:var(--surface)] px-2.5 py-1 text-xs font-semibold text-[color:var(--text)]',
+    temporary: 'inline-flex items-center rounded-full bg-[color:var(--surface)] px-2.5 py-1 text-xs font-semibold text-[color:var(--muted)]',
+  };
+  const kindLabel = {
+    daily: t.taskKindDaily,
+    weekly: t.taskKindWeekly,
+    temporary: t.taskKindTemporary,
+  };
 
   const priorityLabel = {
     0: t.priorityLow,
@@ -58,6 +78,8 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
     3: t.priorityHigh,
     5: t.priorityUrgent,
   };
+  const isSystemMetaDescription = (text) =>
+    typeof text === 'string' && /^Imported from .* onboarding\.$/.test(text.trim());
 
   const handleDelete = async (taskId, hard = false) => {
     if (hard) {
@@ -68,7 +90,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
         await deleteTask(taskId, true);
         onRefresh();
       } catch (err) {
-        alert(err.message);
+        showToast(err.message);
       }
       return;
     }
@@ -81,7 +103,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
         onRefresh();
       });
     } catch (err) {
-      alert(err.message);
+      showToast(err.message);
     }
   };
 
@@ -94,7 +116,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
         onRefresh();
       });
     } catch (err) {
-      alert(err.message);
+      showToast(err.message);
     }
   };
 
@@ -104,7 +126,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
       onRefresh();
       showToast(t.taskRestored);
     } catch (err) {
-      alert(err.message);
+      showToast(err.message);
     }
   };
 
@@ -115,6 +137,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
       description: task.description || '',
       priority: task.priority ?? 0,
       category: task.category || 'unclassified',
+      task_kind: task.task_kind || 'temporary',
       due_date: task.due_date || '',
     });
   };
@@ -126,6 +149,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
       description: '',
       priority: 0,
       category: 'unclassified',
+      task_kind: 'temporary',
       due_date: '',
     });
   };
@@ -141,12 +165,13 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
         description: editForm.description.trim(),
         priority: editForm.priority,
         category: editForm.category,
+        task_kind: editForm.task_kind,
         due_date: editForm.due_date || null,
       });
       cancelEditing();
       onRefresh();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message);
     }
   };
 
@@ -191,7 +216,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
       await reorderTasks(next.map((task) => task.id));
       onRefresh();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message);
       onRefresh();
     }
   };
@@ -254,6 +279,17 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
                     <option value="deferrable">{t.catDeferrable}</option>
                     <option value="deletion_candidate">{t.catDeletion}</option>
                   </select>
+                  <select
+                    value={editForm.task_kind}
+                    onChange={(event) =>
+                      setEditForm((form) => ({ ...form, task_kind: event.target.value }))
+                    }
+                    className="rounded-full border border-[color:var(--line)] bg-white px-3 py-2 text-sm text-[color:var(--text)]"
+                  >
+                    <option value="temporary">{t.taskKindTemporary}</option>
+                    <option value="daily">{t.taskKindDaily}</option>
+                    <option value="weekly">{t.taskKindWeekly}</option>
+                  </select>
                   <input
                     type="date"
                     value={editForm.due_date}
@@ -314,6 +350,9 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
                   <span className={categoryBadge[task.category] || categoryBadge.unclassified}>
                     {categoryLabel[task.category] || t.catUnclassified}
                   </span>
+                  <span className={kindBadge[task.task_kind] || kindBadge.temporary}>
+                    {recurringKindLabel(task, lang, kindLabel[task.task_kind] || t.taskKindTemporary)}
+                  </span>
                   {task.priority >= 3 && (
                     <span className="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[color:var(--muted)]">
                       {priorityLabel[task.priority]}
@@ -321,7 +360,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
                   )}
                 </div>
 
-                {task.description && (
+                {task.description && !isSystemMetaDescription(task.description) && (
                   <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{task.description}</p>
                 )}
 
@@ -340,7 +379,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
                     </button>
                     <button
                       onClick={() => handleComplete(task.id)}
-                      className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-700 transition-all hover:bg-emerald-200"
+                      className="btn-primary"
                     >
                       {t.btnDone}
                     </button>
@@ -352,7 +391,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
                 {(filter === 'completed' || filter === 'deleted') && (
                   <button
                     onClick={() => handleRestore(task.id)}
-                    className="rounded-full bg-sky-100 px-4 py-2 text-sm font-medium text-sky-700 transition-all hover:bg-sky-200"
+                    className="btn-ghost"
                   >
                     {t.restoreBtn}
                   </button>
@@ -360,7 +399,7 @@ function TaskList({ tasks, onRefresh, filter = 'active' }) {
                 {filter === 'deleted' && (
                   <button
                     onClick={() => handleDelete(task.id, true)}
-                    className="rounded-full bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-all hover:bg-red-200"
+                    className="rounded-full bg-[color:var(--accent)] px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-80"
                   >
                     {t.permanentDeleteBtn}
                   </button>

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from core.llm import get_llm_service
-from core.rules import build_capacity_snapshot, normalize_capacity_units
+from core.rules import build_capacity_snapshot, localize_rule_reasons, normalize_capacity_units
 
 
 def _ordered_unique(ids: List[int], preferred_order: List[int]) -> List[int]:
@@ -151,7 +151,7 @@ def _build_deletion_suggestions(
         if not task:
             continue
         rule_info = candidate_map.get(task_id, {})
-        rule_reasons = list(rule_info.get("rule_reasons", []))
+        rule_reasons = localize_rule_reasons(list(rule_info.get("rule_reasons", [])), llm.lang)
         suggestion = dict(task)
         suggestion["trigger_reasons"] = rule_reasons
         suggestion["deletion_reasoning"] = item.get("reason") or llm.generate_deletion_reasoning(
@@ -324,10 +324,19 @@ def generate_daily_plan(
     selected_tasks = []
     for task_id in keep_ids:
         meta = snapshot["task_meta"].get(task_id, {})
+        reason = (
+            "受硬性规则保护。"
+            if lang == "zh" and meta.get("non_negotiable")
+            else "符合当前容量。"
+            if lang == "zh"
+            else "Protected by hard rule."
+            if meta.get("non_negotiable")
+            else "Fits current capacity."
+        )
         selected_tasks.append(
             {
                 "task_id": task_id,
-                "reason": "Protected by hard rule." if meta.get("non_negotiable") else "Fits current capacity.",
+                "reason": reason,
                 "category": "core",
             }
         )
@@ -403,7 +412,12 @@ def regenerate_reasoning(
     all_dicts = [task.to_dict() for task in all_active_tasks]
     snapshot = build_capacity_snapshot(all_dicts, capacity_units=capacity_units)
 
-    selected_task_ids = {plan_task.task_id for plan_task in plan.plan_tasks}
+    selected_task_ids = {
+        plan_task.task_id
+        for plan_task in plan.plan_tasks
+        if getattr(plan_task, "status", "") == "planned"
+        and getattr(getattr(plan_task, "task", None), "status", "active") == "active"
+    }
     selected = [task for task in all_dicts if int(task["id"]) in selected_task_ids]
     deferred = [task for task in all_dicts if int(task["id"]) not in selected_task_ids]
 

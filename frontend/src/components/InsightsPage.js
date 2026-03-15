@@ -32,7 +32,7 @@ function InsightsPage() {
     <div className="space-y-6">
       <section className="card">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
-          Measure the loop
+          {t.insightsEyebrow}
         </p>
         <h1 className="mt-2 text-3xl text-[color:var(--text)]">{t.insightsTitle}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[color:var(--muted)]">{t.insightsSubtitle}</p>
@@ -44,21 +44,21 @@ function InsightsPage() {
             {t.weeklySummaryTitle}
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-4">
-            <div className="rounded-[22px] border border-[color:var(--line)] bg-emerald-50 p-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-emerald-700">{t.completedTasks}</p>
-              <p className="mt-2 text-3xl font-semibold text-emerald-800">{weekly.completed}</p>
+            <div className="rounded-[22px] border border-[color:var(--line)] bg-[color:var(--surface)] p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-[color:var(--muted)]">{t.completedTasks}</p>
+              <p className="mt-2 text-3xl font-semibold text-[color:var(--text)]">{weekly.completed}</p>
             </div>
-            <div className="rounded-[22px] border border-[color:var(--line)] bg-red-50 p-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-red-700">{t.deletedTasks}</p>
-              <p className="mt-2 text-3xl font-semibold text-red-800">{weekly.deleted}</p>
+            <div className="rounded-[22px] border border-[color:var(--line)] bg-[color:var(--surface)] p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-[color:var(--accent)]">{t.deletedTasks}</p>
+              <p className="mt-2 text-3xl font-semibold text-[color:var(--text)]">{weekly.deleted}</p>
             </div>
-            <div className="rounded-[22px] border border-[color:var(--line)] bg-amber-50 p-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-amber-700">{t.reviewDeferred}</p>
-              <p className="mt-2 text-3xl font-semibold text-amber-800">{weekly.deferred}</p>
+            <div className="rounded-[22px] border border-[color:var(--line)] bg-[color:var(--surface)] p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-[color:var(--muted)]">{t.reviewDeferred}</p>
+              <p className="mt-2 text-3xl font-semibold text-[color:var(--text)]">{weekly.deferred}</p>
             </div>
-            <div className="rounded-[22px] border border-[color:var(--line)] bg-sky-50 p-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-sky-700">{t.completionRate}</p>
-              <p className="mt-2 text-3xl font-semibold text-sky-800">{weekly.completion_rate}%</p>
+            <div className="rounded-[22px] border border-[color:var(--line)] bg-[color:var(--surface)] p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-[color:var(--muted)]">{t.completionRate}</p>
+              <p className="mt-2 text-3xl font-semibold text-[color:var(--text)]">{weekly.completion_rate}%</p>
             </div>
           </div>
 

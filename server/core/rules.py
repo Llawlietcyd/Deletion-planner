@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional
 
 DEFAULT_CAPACITY_UNITS = 6
@@ -90,8 +91,9 @@ def keep_score(task: Dict[str, Any], effort_units: int, non_negotiable: bool) ->
     if due_date:
         try:
             from datetime import date as date_cls
+            from core.time import local_today
 
-            days_left = (date_cls.fromisoformat(due_date) - date_cls.today()).days
+            days_left = (date_cls.fromisoformat(due_date) - local_today()).days
             if days_left <= 0:
                 score += 8.0
             elif days_left <= 1:
@@ -126,6 +128,31 @@ def _rule_reasons_for_deletion(task: Dict[str, Any], deferred: bool) -> List[str
         reasons.append("Deferred by capacity constraints in the current plan.")
 
     return reasons
+
+
+def localize_rule_reason(reason: str, lang: str = "en") -> str:
+    if lang != "zh":
+        return reason
+
+    deferred_match = re.fullmatch(r"Deferred (\d+) times\.", reason)
+    if deferred_match:
+        return f'已被推迟 {deferred_match.group(1)} 次。'
+
+    completion_match = re.fullmatch(
+        r"Low completion rate (\d+%) \((\d+)/(\d+)\)\.", reason
+    )
+    if completion_match:
+        rate, completed, attempts = completion_match.groups()
+        return f"完成率偏低 {rate}（{completed}/{attempts}）。"
+
+    if reason == "Deferred by capacity constraints in the current plan.":
+        return "这一轮因为容量限制被推后。"
+
+    return reason
+
+
+def localize_rule_reasons(reasons: List[str], lang: str = "en") -> List[str]:
+    return [localize_rule_reason(reason, lang) for reason in reasons]
 
 
 def build_capacity_snapshot(
